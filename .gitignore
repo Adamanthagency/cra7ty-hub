@@ -1,0 +1,21 @@
+# Environment files — never commit secrets
+.env.local
+.env*.local
+
+# Dependencies / build output
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Vercel CLI link (local)
+.vercel/
+
+# Logs / OS
+*.log
+.DS_Store
+
+# platform / scratch
+.freebuff/
+.temp_curl.bat
+cra7ty-hub.zip

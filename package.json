@@ -1,0 +1,37 @@
+{
+  "name": "cra7ty-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cra7ty Hub — handfolded origami and paper goods studio, Lagos.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "check:replay": "node posthog-replay.check.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "9.114.3",
+    "@react-three/fiber": "8.17.10",
+    "framer-motion": "11.11.9",
+    "gsap": "3.12.5",
+    "next": "14.2.35",
+    "posthog-js": "1.438.13",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.169.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@types/three": "0.169.0",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.35",
+    "postcss": "8.4.47",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.5.4"
+  }
+}

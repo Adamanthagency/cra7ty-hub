@@ -1,0 +1,8 @@
+.env*
+.vercel
+.freebuff
+node_modules
+.next
+*.zip
+*.log
+.temp_curl.bat
