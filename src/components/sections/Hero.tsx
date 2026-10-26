@@ -1,15 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import { useSiteContent } from '@/components/site-content-provider';
 import { Container } from '@/components/primitives/Container';
 import { Button } from '@/components/primitives/Button';
 import { Marquee } from '@/components/primitives/Marquee';
 import { MaskedLines } from '@/components/primitives/Reveal';
 import { CraneHero } from '@/components/three/CraneHero';
+import { SafeImg } from '@/components/primitives/SafeImg';
 import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
 import { interpolateTokens } from '@/lib/edit/keys';
-import { useEditField, useEditList } from '@/lib/edit/use-edit';
+import { useEditField, useEditList, useSectionVariant } from '@/lib/edit/use-edit';
 
 /** Puts the one emphasised word of a headline line into Instrument Serif italic. */
 function lineWithEmphasis(line: string, word: string) {
@@ -59,13 +61,28 @@ export function Hero({ total }: { total?: number }) {
       }))
     : hero.stats;
 
+  // Admin-chosen hero photo (content key home.hero.art-image): empty = the
+  // procedural crane art. Edit mode reads the live set-field override. A URL
+  // that dies after SafeImg's retries falls back to the art too, so a bad
+  // upload never leaves a hole where the art was.
+  const artOverride = useEditField('home.hero.art-image');
+  const artImage = String(artOverride ?? hero.artImage ?? '');
+  const [deadArt, setDeadArt] = useState<string | null>(null);
+  const showPhoto = artImage !== '' && deadArt !== artImage;
+
+  // Layout variant (admin chips → page_sections.variant): 'split' is the
+  // shipped 7/5 grid; 'stacked' sets the headline full-width with the art
+  // below it. The else-path is today's markup, untouched.
+  const variant = useSectionVariant('home', 'hero', 'split');
+  const stacked = variant === 'stacked';
+
   const lines = [line0, line1];
 
   return (
     <section id="top" aria-labelledby="hero-title" className="relative">
       <Container className="pb-12 pt-8 md:pb-16 md:pt-14">
         <div className="grid grid-cols-12 items-end gap-x-6 gap-y-10">
-          <div className="col-span-12 lg:col-span-7">
+          <div className={stacked ? 'col-span-12' : 'col-span-12 lg:col-span-7'}>
             <p className="mono-label-xs text-ink-55">
               <Editable k="home.hero.eyebrow">{hero.eyebrow}</Editable>
             </p>
@@ -105,10 +122,25 @@ export function Hero({ total }: { total?: number }) {
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-5">
+          <div className={stacked ? 'col-span-12' : 'col-span-12 lg:col-span-5'}>
             <div className="relative">
-              <div className="relative h-[17rem] sm:h-[21rem] lg:h-[30rem]">
-                <CraneHero className="h-full w-full" />
+              <div
+                className={
+                  stacked
+                    ? 'relative h-[17rem] sm:h-[21rem] lg:h-[26rem]'
+                    : 'relative h-[17rem] sm:h-[21rem] lg:h-[30rem]'
+                }
+              >
+                {showPhoto ? (
+                  <SafeImg
+                    src={artImage}
+                    alt=""
+                    onDead={() => setDeadArt(artImage)}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <CraneHero className="h-full w-full" />
+                )}
               </div>
               <p className="mono-label-xs mt-1 flex items-center justify-between gap-3 border-t border-ink-12 pt-3 text-ink-40">
                 <span>

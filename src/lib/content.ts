@@ -52,6 +52,8 @@ interface SectionRow {
   key: string;
   position: number;
   visible: boolean;
+  /** layout variant chosen in the admin, e.g. 'split' | 'stacked' */
+  variant: string | null;
 }
 
 /** Admin list-row ids for the fixed sort list → the shelf's own ids. */
@@ -66,7 +68,7 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
     selectRows<ValueRow>('content_values', 'key,value', 'key.asc'),
     selectRows<ListRow>('content_list_items', 'list_key,item_id,position,fields', 'position.asc'),
     selectRows<SettingRow>('site_settings', 'key,value', 'key.asc'),
-    selectRows<SectionRow>('page_sections', 'page,key,position,visible', 'page.asc,position.asc'),
+    selectRows<SectionRow>('page_sections', 'page,key,position,visible,variant', 'page.asc,position.asc'),
     getProducts(),
   ]);
 
@@ -221,6 +223,9 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
     const entry = (pageSections[row.page] ??= { order: [], hidden: [] });
     entry.order.push(row.key);
     if (!row.visible) entry.hidden.push(row.key);
+    if (row.variant) {
+      (entry.variants ??= {})[row.key] = row.variant;
+    }
   }
 
   /* ---------------------------- snapshot ------------------------------ */
@@ -254,6 +259,7 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
         href: V('home.hero.secondary-cta.href', s.hero.secondaryCta.href),
       },
       stats: heroStats,
+      artImage: V('home.hero.art-image', ''),
     },
     sections: {
       categories: sectionBlock('home.categories', s.sections.categories),
@@ -308,6 +314,7 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
         subline: V('about.hero.subline', s.aboutPage.hero.subline),
         artCaption: V('about.hero.art-caption', s.aboutPage.hero.artCaption),
         artNote: V('about.hero.art-note', s.aboutPage.hero.artNote),
+        artImage: V('about.hero.art-image', ''),
       },
       sheet: {
         index: V('about.sheet.index', s.aboutPage.sheet.index),

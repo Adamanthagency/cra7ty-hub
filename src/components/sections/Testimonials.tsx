@@ -5,7 +5,7 @@ import { Container } from '@/components/primitives/Container';
 import { Section } from '@/components/primitives/Section';
 import { Reveal } from '@/components/primitives/Reveal';
 import { Editable } from '@/components/edit/Editable';
-import { useEditList } from '@/lib/edit/use-edit';
+import { useEditList, useSectionVariant } from '@/lib/edit/use-edit';
 
 /**
  * Three quotes at display size, set ragged and offset on purpose. They are
@@ -18,6 +18,10 @@ import { useEditList } from '@/lib/edit/use-edit';
  */
 export function Testimonials() {
   const { sections, testimonials } = useSiteContent();
+  // Layout variant: 'offset' (shipped ragged grid) or 'even' (three equal
+  // columns, uniform quote size). Else-path = today's markup.
+  const variant = useSectionVariant('home', 'testimonials', 'offset');
+  const even = variant === 'even';
   const override = useEditList('home.testimonials.items');
   const items = override
     ? override.map((item) => ({
@@ -48,18 +52,20 @@ export function Testimonials() {
               key={i}
               delay={i * 0.07}
               className={
-                i === 0
-                  ? 'col-span-12 md:col-span-6'
-                  : i === 1
-                    ? 'col-span-12 md:col-span-5 md:col-start-8 md:mt-20'
-                    : 'col-span-12 md:col-span-6 md:col-start-2 md:-mt-10'
+                even
+                  ? 'col-span-12 md:col-span-4'
+                  : i === 0
+                    ? 'col-span-12 md:col-span-6'
+                    : i === 1
+                      ? 'col-span-12 md:col-span-5 md:col-start-8 md:mt-20'
+                      : 'col-span-12 md:col-span-6 md:col-start-2 md:-mt-10'
               }
             >
               <figure>
                 <blockquote>
                   <p
                     className={`font-display italic leading-[1.12] tracking-[-0.015em] ${
-                      i === 1
+                      !even && i === 1
                         ? 'text-display-sm md:text-display-md'
                         : 'text-display-sm'
                     }`}

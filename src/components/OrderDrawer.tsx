@@ -1,29 +1,104 @@
 'use client';
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useOrder, lineId } from '@/lib/order-store';
 import { whatsappOrderLink, whatsappLink } from '@/lib/whatsapp';
 import { naira, pad } from '@/lib/format';
 import { useSiteContent } from '@/components/site-content-provider';
+import { useSectionVariant } from '@/lib/edit/use-edit';
 import { Close, Minus, Plus, ArrowRight } from '@/components/primitives/Icons';
 import { ProductMedia } from '@/components/ProductMedia';
 import { Editable } from '@/components/edit/Editable';
 import { EditableSection } from '@/components/edit/EditableSection';
+import { OrderCheckout } from '@/components/OrderCheckout';
 
 /**
  * The one place an order becomes a real conversation. It holds the lines,
  * the running total in naira, and the button that hands the whole thing to
  * WhatsApp as a message the studio can read on a phone.
+ *
+ * TIER 4: the admin's 'order-drawer' section variant picks the checkout
+ * capability — 'whatsapp' (unchanged original behaviour) or
+ * 'paystack+whatsapp' (card payment via Paystack with the WhatsApp hand-off
+ * kept alongside as the parallel option). The variant is published through
+ * page_sections like every other section; the default is whatsapp, so a
+ * database without the flag renders exactly the pre-Tier-4 drawer.
  */
 export function OrderDrawer() {
   const { site } = useSiteContent();
   const { isOpen, close, lines, setQuantity, remove, clear, total, count } = useOrder();
+  const variant = useSectionVariant('global', 'order-drawer', 'whatsapp');
+  const paystackEnabled = variant === 'paystack+whatsapp';
   const reduced = useReducedMotion();
   const panel = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
+
+  // checkout step within the drawer (paystack variant only)
+  const [step, setStep] = useState<'cart' | 'details'>('cart');
+  // promo code: advisory preview here, re-validated server-side on submit
+  const [promoInput, setPromoInput] = useState('');
+  const [promoState, setPromoState] = useState<'idle' | 'checking' | 'error'>('idle');
+  const [promoError, setPromoError] = useState<React.ReactNode>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+
+  // Closing the drawer returns it to the cart step next time.
+  useEffect(() => {
+    if (!isOpen) setStep('cart');
+  }, [isOpen]);
+
+  // Any change to the cart invalidates an applied code — the buyer
+  // re-applies, the server re-validates against the new subtotal.
+  useEffect(() => {
+    setAppliedCoupon(null);
+    setPromoInput('');
+    setPromoState('idle');
+    setPromoError(null);
+  }, [total]);
+
+  async function applyPromo() {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoState('checking');
+    setPromoError(null);
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, subtotal: total }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        valid?: boolean;
+        reason?: string;
+        code?: string;
+        discount?: number;
+      } | null;
+      if (response.ok && data?.valid && typeof data.discount === 'number') {
+        setAppliedCoupon({ code: data.code ?? code, discount: data.discount });
+        setPromoState('idle');
+        return;
+      }
+      setPromoState('error');
+      setPromoError(
+        response.status === 429 ? (
+          'Too many attempts — try again shortly.'
+        ) : data?.reason === 'expired' ? (
+          <Editable k="global.order-drawer.promo-expired">
+            That coupon code has expired.
+          </Editable>
+        ) : (
+          <Editable k="global.order-drawer.promo-invalid">
+            That code is not valid.
+          </Editable>
+        ),
+      );
+    } catch {
+      setPromoState('error');
+      setPromoError('Could not check the code — try again.');
+    }
+  }
 
   // Move focus in on open, and put it back where it came from on close.
   // AnimatePresence mounts the panel one commit after `isOpen` flips, so the
@@ -135,6 +210,13 @@ export function OrderDrawer() {
 
             {hasItems ? (
               <>
+                {step === 'details' ? (
+                  <OrderCheckout
+                    coupon={appliedCoupon?.code ?? null}
+                    payableTotal={total - (appliedCoupon?.discount ?? 0)}
+                    onBack={() => setStep('cart')}
+                  />
+                ) : (
                 <ul className="flex-1 overflow-y-auto px-6">
                   {lines.map((line) => (
                     <li
@@ -224,6 +306,7 @@ export function OrderDrawer() {
                     </li>
                   ))}
                 </ul>
+                )}
 
                 <footer className="border-t border-ink-12 px-6 py-5">
                   <div className="flex items-baseline justify-between">
@@ -233,32 +316,136 @@ export function OrderDrawer() {
                       </Editable>
                     </span>
                     <span className="font-display text-4xl leading-none tabular-nums">
-                      {naira(total)}
+                      {naira(
+                        paystackEnabled
+                          ? total - (appliedCoupon?.discount ?? 0)
+                          : total,
+                      )}
                     </span>
                   </div>
 
-                  {/* the one place an order leaves the site: never in a snapshot */}
-                  <a
-                    href={whatsappOrderLink(lines, site.whatsappNumber)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-ph-sensitive="order-handoff"
-                    className="btn btn-primary ph-no-capture mt-5 w-full"
-                  >
-                    <span>
-                      <Editable k="global.order-drawer.send-label">
-                        Send order on WhatsApp
-                      </Editable>
-                      <ArrowRight size={14} />
-                    </span>
-                  </a>
+                  {paystackEnabled && appliedCoupon && (
+                    <div className="mt-2 flex items-baseline justify-between">
+                      <span className="mono-label-xs text-ink-55">
+                        <Editable k="global.order-drawer.discount-label">
+                          Discount
+                        </Editable>{' '}
+                        ({appliedCoupon.code})
+                      </span>
+                      <span className="mono-label-xs tabular-nums text-vermilion">
+                        −{naira(appliedCoupon.discount)}
+                      </span>
+                    </div>
+                  )}
 
-                  <p className="mono-label-xs mt-3 text-ink-40">
-                    <Editable k="global.order-drawer.send-caption">
-                      Opens a message with every line, the quantities and the
-                      total. Nothing is charged here.
-                    </Editable>
-                  </p>
+                  {paystackEnabled && (
+                    <div className="mt-4">
+                      <label
+                        htmlFor="order-drawer-promo"
+                        className="mono-label-xs text-ink-55"
+                      >
+                        <Editable k="global.order-drawer.promo-label">
+                          Promo code
+                        </Editable>
+                      </label>
+                      <div className="mt-1.5 flex gap-2">
+                        <input
+                          id="order-drawer-promo"
+                          className="min-w-0 flex-1 border border-ink-12 bg-transparent px-3 py-2 text-sm uppercase outline-none transition-colors focus:border-ink"
+                          placeholder="Enter code"
+                          value={promoInput}
+                          onChange={(e) => setPromoInput(e.target.value)}
+                          maxLength={40}
+                          autoComplete="off"
+                        />
+                        <button
+                          type="button"
+                          onClick={applyPromo}
+                          disabled={
+                            promoState === 'checking' || !promoInput.trim()
+                          }
+                          className="mono-label border border-ink-12 px-4 transition-colors hover:border-ink disabled:opacity-50"
+                        >
+                          {promoState === 'checking' ? (
+                            '…'
+                          ) : (
+                            <Editable k="global.order-drawer.promo-apply">
+                              Apply
+                            </Editable>
+                          )}
+                        </button>
+                      </div>
+                      {promoState === 'error' && promoError && (
+                        <p className="mono-label-xs mt-2 text-vermilion" role="alert">
+                          {promoError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {paystackEnabled ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setStep('details')}
+                        className="btn btn-primary mt-5 w-full"
+                      >
+                        <span>
+                          <Editable k="global.order-drawer.pay-now-label">
+                            Pay now
+                          </Editable>
+                          <ArrowRight size={14} />
+                        </span>
+                      </button>
+
+                      {/* the WhatsApp hand-off stays as the parallel option */}
+                      <a
+                        href={whatsappOrderLink(lines, site.whatsappNumber)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-ph-sensitive="order-handoff"
+                        className="btn btn-secondary ph-no-capture mt-3 w-full"
+                      >
+                        <span>
+                          <Editable k="global.order-drawer.send-label">
+                            Send order on WhatsApp
+                          </Editable>
+                        </span>
+                      </a>
+
+                      <p className="mono-label-xs mt-3 text-ink-40">
+                        <Editable k="global.order-drawer.whatsapp-caption">
+                          Pay with a card above, or send the order on WhatsApp
+                          and confirm it with the studio — your choice.
+                        </Editable>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {/* the one place an order leaves the site: never in a snapshot */}
+                      <a
+                        href={whatsappOrderLink(lines, site.whatsappNumber)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-ph-sensitive="order-handoff"
+                        className="btn btn-primary ph-no-capture mt-5 w-full"
+                      >
+                        <span>
+                          <Editable k="global.order-drawer.send-label">
+                            Send order on WhatsApp
+                          </Editable>
+                          <ArrowRight size={14} />
+                        </span>
+                      </a>
+
+                      <p className="mono-label-xs mt-3 text-ink-40">
+                        <Editable k="global.order-drawer.send-caption">
+                          Opens a message with every line, the quantities and
+                          the total. Nothing is charged here.
+                        </Editable>
+                      </p>
+                    </>
+                  )}
 
                   <button
                     type="button"

@@ -65,6 +65,9 @@ export interface SiteContent {
     primaryCta: { label: string; href: string };
     secondaryCta: { label: string; href: string };
     stats: { value: string; label: string }[];
+    /** chosen in the admin (content key home.hero.art-image); empty = the
+     *  procedural CraneHero art */
+    artImage: string;
   };
   sections: Record<
     'categories' | 'shop' | 'process' | 'bulk' | 'why' | 'testimonials' | 'faq',
@@ -107,6 +110,9 @@ export interface SiteContent {
       subline: string;
       artCaption: string;
       artNote: string;
+      /** chosen in the admin (content key about.hero.art-image); empty = the
+       *  drawn CraneArt */
+      artImage: string;
     };
     sheet: {
       index: string;
@@ -142,7 +148,15 @@ export interface SiteContent {
   faqs: { q: string; a: string }[];
   bulkTiers: { from: number; to: number | null; discount: string; note: string }[];
   /** published section order/visibility per admin page key (home, shop, blog, about, product) */
-  pageSections: Record<string, { order: string[]; hidden: string[] }>;
+  pageSections: Record<
+    string,
+    {
+      order: string[];
+      hidden: string[];
+      /** section key → published layout variant ('split', 'stacked', …) */
+      variants?: Record<string, string>;
+    }
+  >;
   /**
    * The raw scalar fields, {total}-interpolated. Editable uses this as the
    * base value for every content key on every visit; the JSX children in
@@ -170,6 +184,7 @@ export const staticSiteContent: SiteContent = {
     primaryCta: { ...staticHero.primaryCta },
     secondaryCta: { ...staticHero.secondaryCta },
     stats: staticHero.stats.map((stat) => ({ ...stat })),
+    artImage: '',
   },
   sections: {
     categories: {
@@ -248,6 +263,7 @@ export const staticSiteContent: SiteContent = {
       subline: staticAboutPage.hero.subline,
       artCaption: staticAboutPage.hero.artCaption,
       artNote: staticAboutPage.hero.artNote,
+      artImage: '',
     },
     sheet: {
       index: staticAboutPage.sheet.index,

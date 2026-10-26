@@ -92,7 +92,6 @@ export interface OrderLine {
   name: string;
   unitPrice: number;
   quantity: number;
-  model: ModelKey;
   /** The product's photos at add time (upload order). Optional because
    *  lines stored before the photo stage lack it — the drawer then shows
    *  the "No photo yet" placeholder rather than art. */

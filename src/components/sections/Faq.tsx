@@ -8,7 +8,7 @@ import { Section } from '@/components/primitives/Section';
 import { Button } from '@/components/primitives/Button';
 import { Plus, Close, ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
-import { useEditList } from '@/lib/edit/use-edit';
+import { useEditList, useSectionVariant } from '@/lib/edit/use-edit';
 
 /**
  * A disclosure accordion on the native pattern: a real button carrying
@@ -20,6 +20,10 @@ export function Faq() {
   const { faqs, sections, site } = useSiteContent();
   const baseId = useId();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  // Layout variant: 'split' (shipped — questions 7 cols, card beside) or
+  // 'stacked' (questions full width, card below). Else-path = today's markup.
+  const variant = useSectionVariant('home', 'faq', 'split');
+  const stacked = variant === 'stacked';
 
   // Edit mode: set-list on home.faq.items replaces the rows live.
   const override = useEditList('home.faq.items');
@@ -54,7 +58,13 @@ export function Faq() {
     >
       <Container width="wide">
         <div className="grid grid-cols-12 gap-x-6 gap-y-10">
-          <div className="col-span-12 md:col-span-7 md:col-start-1">
+          <div
+            className={
+              stacked
+                ? 'col-span-12'
+                : 'col-span-12 md:col-span-7 md:col-start-1'
+            }
+          >
             <div className="border-t border-ink-12">
               {items.map((item, i) => {
                 const open = openIndex === i;
@@ -114,7 +124,13 @@ export function Faq() {
             </div>
           </div>
 
-          <div className="col-span-12 md:col-span-4 md:col-start-9">
+          <div
+            className={
+              stacked
+                ? 'col-span-12 md:col-span-8 md:col-start-3'
+                : 'col-span-12 md:col-span-4 md:col-start-9'
+            }
+          >
             <div className="dogear border border-ink-24 bg-paper p-7">
               <p className="mono-label-xs text-vermilion">
                 <Editable k="home.faq.card-eyebrow">Still stuck</Editable>

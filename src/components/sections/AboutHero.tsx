@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useSiteContent } from '@/components/site-content-provider';
 import { Container } from '@/components/primitives/Container';
 import { MaskedLines } from '@/components/primitives/Reveal';
 import { CraneArt } from '@/components/three/fallbacks';
+import { SafeImg } from '@/components/primitives/SafeImg';
 import { Editable } from '@/components/edit/Editable';
-import { useEditField } from '@/lib/edit/use-edit';
+import { useEditField, useSectionVariant } from '@/lib/edit/use-edit';
 
 /** Puts the one emphasised word of a headline line into Instrument Serif italic. */
 function lineWithEmphasis(line: string, word: string) {
@@ -50,11 +52,23 @@ export function AboutHero() {
 
   const lines = [line0, line1];
 
+  // Admin-chosen About hero photo (about.hero.art-image): empty = the drawn
+  // crane; a dead URL after SafeImg's retries falls back to the art.
+  const artOverride = useEditField('about.hero.art-image');
+  const artImage = String(artOverride ?? aboutPage.hero.artImage ?? '');
+  const [deadArt, setDeadArt] = useState<string | null>(null);
+  const showPhoto = artImage !== '' && deadArt !== artImage;
+
+  // Layout variant: 'split' (shipped 7/5) or 'stacked' (headline full
+  // width, art below). Else-path = today's markup.
+  const variant = useSectionVariant('about', 'hero', 'split');
+  const stacked = variant === 'stacked';
+
   return (
     <section aria-labelledby="about-hero-title" className="relative">
       <Container className="pb-12 pt-8 md:pb-16 md:pt-14">
         <div className="grid grid-cols-12 items-end gap-x-6 gap-y-10">
-          <div className="col-span-12 lg:col-span-7">
+          <div className={stacked ? 'col-span-12' : 'col-span-12 lg:col-span-7'}>
             <p className="mono-label-xs text-ink-55">
               <Editable k="about.hero.eyebrow">{aboutPage.hero.eyebrow}</Editable>
             </p>
@@ -80,13 +94,28 @@ export function AboutHero() {
             </p>
           </div>
 
-          <div className="col-span-12 lg:col-span-5">
+          <div className={stacked ? 'col-span-12' : 'col-span-12 lg:col-span-5'}>
             <div className="relative">
-              <div className="relative h-[17rem] sm:h-[21rem] lg:h-[30rem]">
-                <CraneArt
-                  className="h-full w-full"
-                  label="A folded paper origami crane"
-                />
+              <div
+                className={
+                  stacked
+                    ? 'relative h-[17rem] sm:h-[21rem] lg:h-[26rem]'
+                    : 'relative h-[17rem] sm:h-[21rem] lg:h-[30rem]'
+                }
+              >
+                {showPhoto ? (
+                  <SafeImg
+                    src={artImage}
+                    alt=""
+                    onDead={() => setDeadArt(artImage)}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <CraneArt
+                    className="h-full w-full"
+                    label="A folded paper origami crane"
+                  />
+                )}
               </div>
               <p className="mono-label-xs mt-1 flex items-center justify-between gap-3 border-t border-ink-12 pt-3 text-ink-40">
                 {/* spans stay OUTSIDE the Editables: they are the flex

@@ -9,9 +9,11 @@ import { ProductMedia } from '@/components/ProductMedia';
 import { AddToOrderButton } from '@/components/AddToOrderButton';
 import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
+import { useSectionVariant } from '@/lib/edit/use-edit';
 import type { Product } from '@/lib/types';
 
-/** Deliberately uneven spans and offsets: a grid of six would read as a grid. */
+/** Deliberately uneven spans and offsets: a grid of six would read as a grid.
+ *  The 'grid' variant deliberately IS that even grid — the admin's choice. */
 const layout: { span: string; art: string }[] = [
   { span: 'lg:col-span-5', art: 'aspect-[4/3.4]' },
   { span: 'lg:col-span-4 lg:col-start-7 lg:mt-16', art: 'aspect-square' },
@@ -21,10 +23,22 @@ const layout: { span: string; art: string }[] = [
   { span: 'lg:col-span-3 lg:col-start-10 lg:mt-20', art: 'aspect-square' },
 ];
 
-function ProductCard({ product, index }: { product: Product; index: number }) {
+/** 'grid' variant: three even columns from lg up, uniform square art. */
+const GRID_CELL = 'lg:col-span-4';
+const GRID_ART = 'aspect-square';
+
+function ProductCard({
+  product,
+  index,
+  art = layout[index % layout.length].art,
+}: {
+  product: Product;
+  index: number;
+  art?: string;
+}) {
   return (
     <DogEarCard index={String(index + 1).padStart(2, '0')} className="h-full">
-      <div className={`relative overflow-hidden bg-kraft-30 px-8 py-10 ${layout[index % layout.length].art}`}>
+      <div className={`relative overflow-hidden bg-kraft-30 px-8 py-10 ${art}`}>
         {product.badge && (
           <span className="mono-label-xs absolute left-5 top-5 z-10 border border-ink-24 px-2 py-1 text-ink-70">
             {product.badge}
@@ -80,6 +94,11 @@ export function FeaturedProducts({
   featured: Product[];
   total: number;
 }) {
+  // Layout variant: 'staggered' (shipped, the six uneven positions) or
+  // 'grid' (uniform three-across). Else-path = today's markup.
+  const variant = useSectionVariant('home', 'featured', 'staggered');
+  const even = variant === 'grid';
+
   return (
     <Section
       id="shop"
@@ -95,8 +114,15 @@ export function FeaturedProducts({
       <Container width="wide">
         <ul className="grid grid-cols-12 gap-x-6 gap-y-6">
           {featured.map((product, i) => (
-            <li key={product.id} className={`col-span-12 ${layout[i % layout.length].span}`}>
-              <ProductCard product={product} index={i} />
+            <li
+              key={product.id}
+              className={`col-span-12 ${even ? GRID_CELL : layout[i % layout.length].span}`}
+            >
+              <ProductCard
+                product={product}
+                index={i}
+                art={even ? GRID_ART : undefined}
+              />
             </li>
           ))}
         </ul>

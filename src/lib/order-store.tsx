@@ -73,7 +73,6 @@ function reducer(state: OrderLine[], action: Action): OrderLine[] {
           name: product.name,
           unitPrice: options?.unitPrice ?? product.price,
           quantity,
-          model: product.model,
           images: product.images,
           ...(options?.variantKey ? { variantKey: options.variantKey } : {}),
           ...(options?.variantLabel
