@@ -25,13 +25,16 @@ import { posts as staticPosts } from '@/data/posts';
  * here and in src/lib/content.ts via selectRows):
  *   - no env vars            → static /data fallback (secretless CI still builds)
  *   - table missing (404)    → fallback, warned ("never seeded")
- *   - empty table            → fallback, warned ("never seeded")
  *   - local dev can't reach  → fallback, warned
  *   - anything else          → retry with backoff, then THROW: a production
  *                              build fails loudly, an ISR revalidation keeps
  *                              serving the previous page. A 4xx that isn't
  *                              404 is schema drift and will not heal — it
  *                              breaks out of the retry loop immediately.
+ *
+ * An EMPTY table (reachable, zero rows) is NOT a fallback case — it returns
+ * [] so the site renders an honest empty state instead of resurrecting the
+ * seed content that a client deliberately deleted.
  *
  * Category counts are always computed from the products that actually
  * exist, never stored (the categories.count column is ignored on purpose:
@@ -112,7 +115,9 @@ interface PostRow {
 
 /**
  * null means "no usable database" — callers fall back to the static copy.
- * Shared with src/lib/content.ts so both seams follow one rule.
+ * [] means "reachable and genuinely empty" — callers render an honest
+ * empty state, NOT the seed. Shared with src/lib/content.ts so both
+ * seams follow one rule.
  */
 export async function selectRows<T>(
   table: string,
@@ -145,10 +150,11 @@ export async function selectRows<T>(
 
       if (response.ok) {
         const rows = (await response.json()) as T[];
-        if (rows.length === 0) {
-          console.warn(`[catalog] ${table} is empty — never seeded; using /data fallback`);
-          return null;
-        }
+        // An empty table is HONESTLY empty, not "never seeded": the client
+        // deleted every row, or there is genuinely nothing to show. Returning
+        // null here would resurrect the static /data seed live, so we return
+        // the empty array and let the callers render their real empty state
+        // (the same one they already use for "all rows inactive").
         return rows;
       }
 
