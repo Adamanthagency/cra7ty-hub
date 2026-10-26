@@ -3,12 +3,12 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useOrder } from '@/lib/order-store';
+import { useOrder, lineId } from '@/lib/order-store';
 import { whatsappOrderLink, whatsappLink } from '@/lib/whatsapp';
 import { naira, pad } from '@/lib/format';
-import { site } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { Close, Minus, Plus, ArrowRight } from '@/components/primitives/Icons';
-import { ModelArt } from '@/components/three/fallbacks';
+import { ProductMedia } from '@/components/ProductMedia';
 import { Editable } from '@/components/edit/Editable';
 import { EditableSection } from '@/components/edit/EditableSection';
 
@@ -18,6 +18,7 @@ import { EditableSection } from '@/components/edit/EditableSection';
  * WhatsApp as a message the studio can read on a phone.
  */
 export function OrderDrawer() {
+  const { site } = useSiteContent();
   const { isOpen, close, lines, setQuantity, remove, clear, total, count } = useOrder();
   const reduced = useReducedMotion();
   const panel = useRef<HTMLDivElement>(null);
@@ -137,15 +138,27 @@ export function OrderDrawer() {
                 <ul className="flex-1 overflow-y-auto px-6">
                   {lines.map((line) => (
                     <li
-                      key={line.productId}
+                      key={lineId(line.productId, line.variantKey)}
                       className="flex gap-4 border-b border-ink-06 py-5 last:border-b-0"
                     >
                       <div className="h-16 w-16 shrink-0 bg-kraft-30 p-1">
-                        <ModelArt model={line.model} className="h-full w-full" />
+                        {/* the line's photo captured at add time; lines
+                            stored before photos existed show the honest
+                            placeholder — never 3D art */}
+                        <ProductMedia
+                          images={line.images ?? []}
+                          name={line.name}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <p className="font-display text-lg leading-tight">{line.name}</p>
+                        {line.variantLabel && (
+                          <p className="mono-label-xs mt-1 text-ink-40">
+                            {line.variantLabel}
+                          </p>
+                        )}
                         <p className="mono-label-xs mt-1 text-ink-55">
                           {naira(line.unitPrice)}{' '}
                           <Editable k="global.order-drawer.each-suffix">
@@ -157,7 +170,12 @@ export function OrderDrawer() {
                           <div className="flex items-center border border-ink-12">
                             <button
                               type="button"
-                              onClick={() => setQuantity(line.productId, line.quantity - 1)}
+                              onClick={() =>
+                                setQuantity(
+                                  lineId(line.productId, line.variantKey),
+                                  line.quantity - 1,
+                                )
+                              }
                               className="flex h-8 w-8 items-center justify-center transition-colors hover:bg-ink-06"
                               aria-label={`Decrease quantity of ${line.name}`}
                             >
@@ -172,7 +190,12 @@ export function OrderDrawer() {
                             </output>
                             <button
                               type="button"
-                              onClick={() => setQuantity(line.productId, line.quantity + 1)}
+                              onClick={() =>
+                                setQuantity(
+                                  lineId(line.productId, line.variantKey),
+                                  line.quantity + 1,
+                                )
+                              }
                               className="flex h-8 w-8 items-center justify-center transition-colors hover:bg-ink-06"
                               aria-label={`Increase quantity of ${line.name}`}
                             >
@@ -188,7 +211,9 @@ export function OrderDrawer() {
 
                       <button
                         type="button"
-                        onClick={() => remove(line.productId)}
+                        onClick={() =>
+                          remove(lineId(line.productId, line.variantKey))
+                        }
                         className="mono-label-xs self-start text-ink-40 underline decoration-ink-24 underline-offset-4 transition-colors hover:text-vermilion"
                       >
                         <Editable k="global.order-drawer.remove-label">
@@ -214,7 +239,7 @@ export function OrderDrawer() {
 
                   {/* the one place an order leaves the site: never in a snapshot */}
                   <a
-                    href={whatsappOrderLink(lines)}
+                    href={whatsappOrderLink(lines, site.whatsappNumber)}
                     target="_blank"
                     rel="noopener noreferrer"
                     data-ph-sensitive="order-handoff"
@@ -271,6 +296,7 @@ export function OrderDrawer() {
                   <a
                     href={whatsappLink(
                       'Hello Cra7ty Hub, I would like to ask about a custom order.',
+                      site.whatsappNumber,
                     )}
                     target="_blank"
                     rel="noopener noreferrer"

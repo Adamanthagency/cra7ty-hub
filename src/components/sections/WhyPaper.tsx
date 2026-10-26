@@ -1,6 +1,6 @@
 'use client';
 
-import { whyPoints, sections } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { Container } from '@/components/primitives/Container';
 import { Section } from '@/components/primitives/Section';
 import { Reveal } from '@/components/primitives/Reveal';
@@ -16,6 +16,7 @@ import { useEditList } from '@/lib/edit/use-edit';
  * reveal).
  */
 export function WhyPaper() {
+  const { whyPoints, sections } = useSiteContent();
   const override = useEditList('home.why.points');
   const points = override
     ? override.map((item) => ({

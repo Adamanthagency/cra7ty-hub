@@ -1,21 +1,22 @@
 'use client';
 
-import { marqueeWords } from '@/data/site';
 import { interpolateTokens } from '@/lib/edit/keys';
 import { useEditList } from '@/lib/edit/use-edit';
+import { useSiteContent } from '@/components/site-content-provider';
 
 /**
  * The mono strip under the hero. One track holds two identical halves so the
  * -50% translate loops seamlessly. The animation is disabled by CSS for
  * prefers-reduced-motion, which leaves the words readable and still.
  *
- * Pass `listKey` (the admin's marquee word list) to make it editable: a
- * `set-list` override replaces the words, with {total} interpolated locally
- * (raw tokens never render). Without an override — and on a normal visit —
- * the given `words` render exactly as before.
+ * Default words come from the content snapshot (the admin's
+ * `home.hero.marquee.words` list on a normal visit). Pass `listKey` to make
+ * a specific strip editable: a `set-list` override replaces the words, with
+ * {total} interpolated locally (raw tokens never render). An explicit
+ * `words` prop still wins over the snapshot default.
  */
 export function Marquee({
-  words = marqueeWords,
+  words,
   className = '',
   listKey,
   total,
@@ -25,12 +26,13 @@ export function Marquee({
   listKey?: string;
   total?: number;
 }) {
+  const { marqueeWords } = useSiteContent();
   const override = useEditList(listKey ?? '');
   const list = override
     ? override.map((item) =>
         interpolateTokens(String(item.fields.word ?? ''), { total }),
       )
-    : words;
+    : (words ?? marqueeWords);
 
   return (
     <div

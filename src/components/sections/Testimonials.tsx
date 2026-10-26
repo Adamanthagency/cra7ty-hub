@@ -1,6 +1,6 @@
 'use client';
 
-import { sections, testimonials } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { Container } from '@/components/primitives/Container';
 import { Section } from '@/components/primitives/Section';
 import { Reveal } from '@/components/primitives/Reveal';
@@ -17,6 +17,7 @@ import { useEditList } from '@/lib/edit/use-edit';
  * the reveal).
  */
 export function Testimonials() {
+  const { sections, testimonials } = useSiteContent();
   const override = useEditList('home.testimonials.items');
   const items = override
     ? override.map((item) => ({

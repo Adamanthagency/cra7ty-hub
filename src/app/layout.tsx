@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Instrument_Serif, JetBrains_Mono, Schibsted_Grotesk } from 'next/font/google';
 import './globals.css';
-import { site } from '@/data/site';
+import { getContentSnapshot } from '@/lib/content';
+import { SiteContentProvider } from '@/components/site-content-provider';
 import { OrderProvider } from '@/lib/order-store';
 import { CustomCursor } from '@/components/CustomCursor';
 import { SiteNav } from '@/components/sections/SiteNav';
@@ -34,57 +35,61 @@ const mono = JetBrains_Mono({
   variable: '--font-mono',
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(site.url),
-  title: {
-    default: `${site.name} — ${site.tagline}`,
-    template: `%s — ${site.name}`,
-  },
-  description: site.description,
-  applicationName: site.name,
-  keywords: [
-    'origami Lagos',
-    'handfolded paper cranes',
-    'paper party supplies Nigeria',
-    'paper plates wholesale',
-    'event favours Lagos',
-    'gift wrap Nigeria',
-    'custom origami orders',
-  ],
-  authors: [{ name: site.name }],
-  creator: site.name,
-  publisher: site.name,
-  alternates: { canonical: '/' },
-  openGraph: {
-    type: 'website',
-    url: site.url,
-    siteName: site.name,
-    title: `${site.name} — ${site.tagline}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const { site } = await getContentSnapshot();
+
+  return {
+    metadataBase: new URL(site.url),
+    title: {
+      default: `${site.name} — ${site.tagline}`,
+      template: `%s — ${site.name}`,
+    },
     description: site.description,
-    locale: site.locale,
-    images: [
-      {
-        url: '/og.svg',
-        width: 1200,
-        height: 630,
-        alt: 'Cra7ty Hub — handfolded origami and paper goods, Lagos',
-        type: 'image/svg+xml',
-      },
+    applicationName: site.name,
+    keywords: [
+      'origami Lagos',
+      'handfolded paper cranes',
+      'paper party supplies Nigeria',
+      'paper plates wholesale',
+      'event favours Lagos',
+      'gift wrap Nigeria',
+      'custom origami orders',
     ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: `${site.name} — ${site.tagline}`,
-    description: site.description,
-    images: ['/og.svg'],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
-  },
-  formatDetection: { telephone: false },
-};
+    authors: [{ name: site.name }],
+    creator: site.name,
+    publisher: site.name,
+    alternates: { canonical: '/' },
+    openGraph: {
+      type: 'website',
+      url: site.url,
+      siteName: site.name,
+      title: `${site.name} — ${site.tagline}`,
+      description: site.description,
+      locale: site.locale,
+      images: [
+        {
+          url: '/og.svg',
+          width: 1200,
+          height: 630,
+          alt: 'Cra7ty Hub — handfolded origami and paper goods, Lagos',
+          type: 'image/svg+xml',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${site.name} — ${site.tagline}`,
+      description: site.description,
+      images: ['/og.svg'],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
+    },
+    formatDetection: { telephone: false },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: '#f4efe6',
@@ -93,35 +98,43 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const content = await getContentSnapshot();
+
   return (
     <html
       lang="en-NG"
       className={`${display.variable} ${body.variable} ${mono.variable}`}
     >
       <body className="bg-paper text-ink antialiased">
-        <a href="#main" className="sr-only-focusable">
-          Skip to content
-        </a>
-        {/* paper grain, felt rather than seen */}
-        <div className="grain-layer" aria-hidden="true" />
+        <SiteContentProvider content={content}>
+          <a href="#main" className="sr-only-focusable">
+            Skip to content
+          </a>
+          {/* paper grain, felt rather than seen */}
+          <div className="grain-layer" aria-hidden="true" />
 
-        <OrderProvider>
-          <SiteNav />
-          <main id="main">{children}</main>
-          <SiteFooter />
-          <OrderDrawer />
-        </OrderProvider>
+          <OrderProvider>
+            <SiteNav />
+            <main id="main">{children}</main>
+            <SiteFooter />
+            <OrderDrawer />
+          </OrderProvider>
 
-        <CustomCursor />
+          <CustomCursor />
 
-        {/* edit-mode bridge gate: null-rendering; imports the bridge only
-            when framed by the admin with ?cra7ty-edit=1 */}
-        <EditBridgeGate />
+          {/* edit-mode bridge gate: null-rendering; imports the bridge only
+              when framed by the admin with ?cra7ty-edit=1 */}
+          <EditBridgeGate />
 
-        {/* session replay: mounted once, browser only, consent gated */}
-        <ReplayAnalytics />
-        <ReplayConsent />
+          {/* session replay: mounted once, browser only, consent gated */}
+          <ReplayAnalytics />
+          <ReplayConsent />
+        </SiteContentProvider>
       </body>
     </html>
   );

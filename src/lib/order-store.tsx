@@ -20,10 +20,31 @@ import type { OrderLine, Product } from '@/lib/types';
 
 const STORAGE_KEY = 'cra7ty-hub.order.v1';
 
+/**
+ * One add from the UI. variantKey/variantLabel come from the detail page's
+ * picker; shelf/featured/category cards omit them and add the base line.
+ * unitPrice is the effective price (after any variant priceOverride).
+ */
+export interface AddOptions {
+  variantKey?: string;
+  variantLabel?: string;
+  unitPrice?: number;
+}
+
+/**
+ * Line identity: `productId::variantKey` when a variant is selected, bare
+ * productId otherwise. Two variant selections of one product are separate
+ * lines; lines stored before the variant stage have no variantKey and keep
+ * their original identity, so old orders still update and remove correctly.
+ */
+export function lineId(productId: string, variantKey?: string): string {
+  return variantKey ? `${productId}::${variantKey}` : productId;
+}
+
 type Action =
-  | { type: 'add'; product: Product; quantity: number }
-  | { type: 'setQuantity'; productId: string; quantity: number }
-  | { type: 'remove'; productId: string }
+  | { type: 'add'; product: Product; quantity: number; options?: AddOptions }
+  | { type: 'setQuantity'; lineId: string; quantity: number }
+  | { type: 'remove'; lineId: string }
   | { type: 'clear' }
   | { type: 'hydrate'; lines: OrderLine[] };
 
@@ -32,11 +53,16 @@ function reducer(state: OrderLine[], action: Action): OrderLine[] {
     case 'hydrate':
       return action.lines;
     case 'add': {
-      const { product, quantity } = action;
-      const existing = state.find((l) => l.productId === product.id);
+      const { product, quantity, options } = action;
+      const id = lineId(product.id, options?.variantKey);
+      const existing = state.find(
+        (l) => lineId(l.productId, l.variantKey) === id,
+      );
       if (existing) {
         return state.map((l) =>
-          l.productId === product.id ? { ...l, quantity: l.quantity + quantity } : l,
+          lineId(l.productId, l.variantKey) === id
+            ? { ...l, quantity: l.quantity + quantity }
+            : l,
         );
       }
       return [
@@ -45,20 +71,31 @@ function reducer(state: OrderLine[], action: Action): OrderLine[] {
           productId: product.id,
           slug: product.slug,
           name: product.name,
-          unitPrice: product.price,
+          unitPrice: options?.unitPrice ?? product.price,
           quantity,
           model: product.model,
+          images: product.images,
+          ...(options?.variantKey ? { variantKey: options.variantKey } : {}),
+          ...(options?.variantLabel
+            ? { variantLabel: options.variantLabel }
+            : {}),
         },
       ];
     }
     case 'setQuantity':
       return action.quantity <= 0
-        ? state.filter((l) => l.productId !== action.productId)
+        ? state.filter(
+            (l) => lineId(l.productId, l.variantKey) !== action.lineId,
+          )
         : state.map((l) =>
-            l.productId === action.productId ? { ...l, quantity: action.quantity } : l,
+            lineId(l.productId, l.variantKey) === action.lineId
+              ? { ...l, quantity: action.quantity }
+              : l,
           );
     case 'remove':
-      return state.filter((l) => l.productId !== action.productId);
+      return state.filter(
+        (l) => lineId(l.productId, l.variantKey) !== action.lineId,
+      );
     case 'clear':
       return [];
     default:
@@ -72,9 +109,9 @@ interface OrderContextValue {
   total: number;
   isOpen: boolean;
   lastAddedId: string | null;
-  add: (product: Product, quantity?: number) => void;
-  setQuantity: (productId: string, quantity: number) => void;
-  remove: (productId: string) => void;
+  add: (product: Product, quantity?: number, options?: AddOptions) => void;
+  setQuantity: (lineId: string, quantity: number) => void;
+  remove: (lineId: string) => void;
   clear: () => void;
   open: () => void;
   close: () => void;
@@ -136,17 +173,20 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     };
   }, [isOpen]);
 
-  const add = useCallback((product: Product, quantity = 1) => {
-    dispatch({ type: 'add', product, quantity });
-    setLastAddedId(product.id);
+  const add = useCallback(
+    (product: Product, quantity = 1, options?: AddOptions) => {
+      dispatch({ type: 'add', product, quantity, options });
+      setLastAddedId(lineId(product.id, options?.variantKey));
+    },
+    [],
+  );
+
+  const setQuantity = useCallback((id: string, quantity: number) => {
+    dispatch({ type: 'setQuantity', lineId: id, quantity });
   }, []);
 
-  const setQuantity = useCallback((productId: string, quantity: number) => {
-    dispatch({ type: 'setQuantity', productId, quantity });
-  }, []);
-
-  const remove = useCallback((productId: string) => {
-    dispatch({ type: 'remove', productId });
+  const remove = useCallback((id: string) => {
+    dispatch({ type: 'remove', lineId: id });
   }, []);
 
   const clear = useCallback(() => dispatch({ type: 'clear' }), []);

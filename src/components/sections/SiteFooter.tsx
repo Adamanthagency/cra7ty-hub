@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { footer, site } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Container } from '@/components/primitives/Container';
 import { CraneMark } from '@/components/primitives/Icons';
@@ -38,6 +38,7 @@ const toLinks = (
     : [...fallback];
 
 export function SiteFooter() {
+  const { footer, site } = useSiteContent();
   const columnsOverride = useEditList('global.footer.columns');
   const shopLinks = useEditList('global.footer.shop-links');
   const ordersLinks = useEditList('global.footer.orders-links');
@@ -128,6 +129,7 @@ export function SiteFooter() {
                 <a
                   href={whatsappLink(
                     `Hello Cra7ty Hub, I would like to ask about ${site.name}.`,
+                    site.whatsappNumber,
                   )}
                   target="_blank"
                   rel="noopener noreferrer"

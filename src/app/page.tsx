@@ -7,16 +7,18 @@ import { WhyPaper } from '@/components/sections/WhyPaper';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { Faq } from '@/components/sections/Faq';
 import { Marquee } from '@/components/primitives/Marquee';
-import { sections } from '@/data/site';
+import { getContentSnapshot } from '@/lib/content';
 import { getCategories, getFeaturedProducts, getProducts } from '@/lib/catalog';
 import { SectionOrderHost } from '@/components/edit/SectionOrderHost';
 
 export default async function HomePage() {
-  const [categories, products, featured] = await Promise.all([
+  const [content, categories, products, featured] = await Promise.all([
+    getContentSnapshot(),
     getCategories(),
     getProducts(),
     getFeaturedProducts(),
   ]);
+  const { sections } = content;
 
   const slots = {
     hero: <Hero total={products.length} />,
@@ -40,12 +42,7 @@ export default async function HomePage() {
     ),
     marquee: (
       <Marquee
-        words={[
-          'One studio',
-          'Eleven products',
-          'No payment gateway',
-          'Counted by hand',
-        ]}
+        words={content.marqueeHome}
         listKey="home.marquee.words"
         total={products.length}
       />
@@ -69,5 +66,11 @@ export default async function HomePage() {
     'faq',
   ];
 
-  return <SectionOrderHost slots={slots} order={order} />;
+  return (
+    <SectionOrderHost
+      slots={slots}
+      order={order}
+      published={content.pageSections.home}
+    />
+  );
 }

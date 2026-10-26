@@ -1,7 +1,6 @@
 'use client';
 
-import { hero } from '@/data/site';
-import { site } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { Container } from '@/components/primitives/Container';
 import { Button } from '@/components/primitives/Button';
 import { Marquee } from '@/components/primitives/Marquee';
@@ -29,6 +28,8 @@ const text = (value: string | number | null, fallback: string) =>
   value === null ? fallback : String(value);
 
 export function Hero({ total }: { total?: number }) {
+  const { hero, site } = useSiteContent();
+
   // Structure-level overrides live HERE, not inside Editable:
   // - the headline re-splits on the CURRENT emphasis word on every
   //   set-field (the per-line Editables are `managed` so their children —

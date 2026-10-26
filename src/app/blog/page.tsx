@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getAllPosts, formatPostDate } from '@/data/posts';
-import { blogPage, site } from '@/data/site';
+import { getPosts } from '@/lib/catalog';
+import { formatPostDate } from '@/data/posts';
+import { getContentSnapshot } from '@/lib/content';
 import { pad } from '@/lib/format';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Container } from '@/components/primitives/Container';
@@ -13,19 +14,20 @@ import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
 import { SectionOrderHost } from '@/components/edit/SectionOrderHost';
 
-export const metadata: Metadata = {
-  title: blogPage.title.join(' '),
-  description: blogPage.metaDescription,
-  alternates: { canonical: '/blog' },
-  openGraph: {
-    title: `${blogPage.title.join(' ')} — ${site.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const { blogPage, site } = await getContentSnapshot();
+  return {
+    title: blogPage.title.join(' '),
     description: blogPage.metaDescription,
-    url: `${site.url}/blog`,
-    type: 'website',
-  },
-};
-
-const noteQuestion = `Hello Cra7ty Hub, I read a note on ${site.name} and have a question:`;
+    alternates: { canonical: '/blog' },
+    openGraph: {
+      title: `${blogPage.title.join(' ')} — ${site.name}`,
+      description: blogPage.metaDescription,
+      url: `${site.url}/blog`,
+      type: 'website',
+    },
+  };
+}
 
 /**
  * The folio. In edit mode the four bands are hosted for selection/reorder/
@@ -34,9 +36,12 @@ const noteQuestion = `Hello Cra7ty Hub, I read a note on ${site.name} and have a
  * Post titles, excerpts and dates belong to the Posts manager, not the
  * content keys.
  */
-export default function BlogPage() {
-  const all = getAllPosts();
-  const [lead, ...rest] = all;
+export default async function BlogPage() {
+  const [content, allPosts] = await Promise.all([getContentSnapshot(), getPosts()]);
+  const { blogPage, site } = content;
+  const [lead, ...rest] = allPosts;
+
+  const noteQuestion = `Hello Cra7ty Hub, I read a note on ${site.name} and have a question:`;
 
   const slots = {
     header: (
@@ -198,7 +203,7 @@ export default function BlogPage() {
             <Editable k="blog.closing.line">{blogPage.closing.line}</Editable>
           </p>
           <div className="mt-8 flex justify-center">
-            <Button href={whatsappLink(noteQuestion)}>
+            <Button href={whatsappLink(noteQuestion, site.whatsappNumber)}>
               <Editable k="blog.closing.cta-label">
                 {blogPage.closing.ctaLabel}
               </Editable>
@@ -217,5 +222,11 @@ export default function BlogPage() {
 
   const order = ['header', 'lead', 'more', 'closing'] as const;
 
-  return <SectionOrderHost slots={slots} order={order} />;
+  return (
+    <SectionOrderHost
+      slots={slots}
+      order={order}
+      published={content.pageSections.blog}
+    />
+  );
 }

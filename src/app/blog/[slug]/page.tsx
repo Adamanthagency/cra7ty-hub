@@ -1,27 +1,32 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getPostBySlug, posts, formatPostDate } from '@/data/posts';
-import { blogPage, site } from '@/data/site';
-import { getProductById } from '@/data/products';
+import { getPostBySlug, getPosts, getProductById } from '@/lib/catalog';
+import { getContentSnapshot } from '@/lib/content';
+import { Body } from '@/lib/body-render';
+import { formatPostDate } from '@/data/posts';
 import { naira, pad } from '@/lib/format';
 import { Container } from '@/components/primitives/Container';
 import { DogEarCard } from '@/components/primitives/DogEarCard';
 import { FoldDivider } from '@/components/primitives/FoldDivider';
 import { MaskedLines } from '@/components/primitives/Reveal';
-import { ModelArt } from '@/components/three/fallbacks';
+import { ProductMedia } from '@/components/ProductMedia';
 import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
 import type { Product } from '@/lib/types';
 
 type Params = { params: { slug: string } };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const posts = await getPosts();
   return posts.map((post) => ({ slug: post.slug }));
 }
 
-export function generateMetadata({ params }: Params): Metadata {
-  const post = getPostBySlug(params.slug);
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const [post, { site }] = await Promise.all([
+    getPostBySlug(params.slug),
+    getContentSnapshot(),
+  ]);
   if (!post) return { title: 'Not found' };
   return {
     title: post.title,
@@ -36,13 +41,18 @@ export function generateMetadata({ params }: Params): Metadata {
   };
 }
 
-export default function BlogPostPage({ params }: Params) {
-  const post = getPostBySlug(params.slug);
+export default async function BlogPostPage({ params }: Params) {
+  const [post, content, posts] = await Promise.all([
+    getPostBySlug(params.slug),
+    getContentSnapshot(),
+    getPosts(),
+  ]);
   if (!post) notFound();
+  const { blogPage } = content;
 
-  const related = post.relatedProductIds
-    .map((id) => getProductById(id))
-    .filter((product): product is Product => Boolean(product));
+  const related = (
+    await Promise.all(post.relatedProductIds.map((id) => getProductById(id)))
+  ).filter((product): product is Product => Boolean(product));
   const more = posts.filter((item) => item.slug !== post.slug).slice(0, 2);
 
   return (
@@ -102,16 +112,7 @@ export default function BlogPostPage({ params }: Params) {
           )}
         </div>
 
-        <div className="mt-10 space-y-5">
-          {post.body.map((paragraph) => (
-            <p
-              key={paragraph.slice(0, 24)}
-              className="text-base leading-relaxed text-ink-70"
-            >
-              {paragraph}
-            </p>
-          ))}
-        </div>
+        <Body blocks={post.body} />
       </Container>
 
       <FoldDivider />
@@ -128,8 +129,12 @@ export default function BlogPostPage({ params }: Params) {
               <li key={item.id}>
                 <DogEarCard size="sm">
                   <Link href={`/products/${item.slug}`} className="block">
-                    <div className="h-44 bg-kraft-30 px-8 py-6">
-                      <ModelArt model={item.model} className="h-full w-full" />
+                    <div className="relative h-44 bg-kraft-30">
+                      <ProductMedia
+                        images={item.images ?? []}
+                        name={item.name}
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
                     </div>
                     <div className="flex items-baseline justify-between gap-3 p-4">
                       <span className="text-sm font-medium">{item.name}</span>

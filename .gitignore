@@ -19,3 +19,14 @@ out/
 .freebuff/
 .temp_curl.bat
 cra7ty-hub.zip
+
+# Supabase CLI local state (project link, pooler host, CA cert) — regenerable
+# per machine. Contains no secrets but is not source. Migrations ARE tracked.
+supabase/.temp/
+
+# Visual-regression scratch: HTML snapshots captured by the E2E/visual harness
+.after/
+.after2/
+.baseline/
+.verify/
+.list-check.json

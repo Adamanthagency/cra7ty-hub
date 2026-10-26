@@ -6,6 +6,10 @@ import { site } from '@/data/site';
  * The whole site funnels orders through WhatsApp, so this builds the message
  * a buyer sends us: every line, the quantity, the line total and the order
  * total. Nothing is charged on the site.
+ *
+ * The link builders take an optional `number` so callers holding the content
+ * snapshot pass the LIVE number from the Settings manager; the /data value
+ * stays the default for anything that renders before the snapshot exists.
  */
 export function buildOrderMessage(lines: OrderLine[]): string {
   const totalUnits = lines.reduce((sum, l) => sum + l.quantity, 0);
@@ -15,7 +19,11 @@ export function buildOrderMessage(lines: OrderLine[]): string {
   const body = lines
     .map((line, i) => {
       const lineTotal = line.quantity * line.unitPrice;
-      return `${i + 1}. ${line.name} — ${line.quantity} × ${naira(line.unitPrice)} = ${naira(lineTotal)}`;
+      // variant selections ride the line: "Name (Kraft / Standard) — …"
+      const name = line.variantLabel
+        ? `${line.name} (${line.variantLabel})`
+        : line.name;
+      return `${i + 1}. ${name} — ${line.quantity} × ${naira(line.unitPrice)} = ${naira(lineTotal)}`;
     })
     .join('\n');
 
@@ -32,12 +40,18 @@ export function buildOrderMessage(lines: OrderLine[]): string {
 }
 
 /** wa.me deep link with the message pre-filled. */
-export function whatsappOrderLink(lines: OrderLine[]): string {
+export function whatsappOrderLink(
+  lines: OrderLine[],
+  number: string = site.whatsappNumber,
+): string {
   const text = encodeURIComponent(buildOrderMessage(lines));
-  return `https://wa.me/${site.whatsappNumber}?text=${text}`;
+  return `https://wa.me/${number}?text=${text}`;
 }
 
 /** A wa.me link with no order attached, for general enquiries. */
-export function whatsappLink(message: string): string {
-  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+export function whatsappLink(
+  message: string,
+  number: string = site.whatsappNumber,
+): string {
+  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }

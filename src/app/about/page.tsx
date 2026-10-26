@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { aboutPage, hero, site } from '@/data/site';
-import { products } from '@/data/products';
+import { getContentSnapshot } from '@/lib/content';
+import { getProducts } from '@/lib/catalog';
 import { naira } from '@/lib/format';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Container } from '@/components/primitives/Container';
@@ -18,28 +18,32 @@ import { WhyPaper } from '@/components/sections/WhyPaper';
 import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
 import { SectionOrderHost } from '@/components/edit/SectionOrderHost';
+import type { SiteContent } from '@/lib/site-content';
 
-export const metadata: Metadata = {
-  title: 'About',
-  description: aboutPage.metaDescription,
-  alternates: { canonical: '/about' },
-  openGraph: {
-    title: `About — ${site.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const { aboutPage, site } = await getContentSnapshot();
+  return {
+    title: 'About',
     description: aboutPage.metaDescription,
-    url: `${site.url}/about`,
-    type: 'website',
-  },
-};
+    alternates: { canonical: '/about' },
+    openGraph: {
+      title: `About — ${site.name}`,
+      description: aboutPage.metaDescription,
+      url: `${site.url}/about`,
+      type: 'website',
+    },
+  };
+}
 
-const studioQuestion = `Hello Cra7ty Hub, I would like to ask the studio a question.`;
-
-/** Every value computed from the data files, none typed into the page. */
-function buildNumbers() {
-  const turnaround = hero.stats.find((stat) => stat.label.includes('turnaround'));
+/** Every value computed from the snapshot, none typed into the page. */
+function buildNumbers(content: SiteContent, productCount: number) {
+  const turnaround = content.hero.stats.find((stat) =>
+    stat.label.includes('turnaround'),
+  );
   return [
-    { label: 'Studio founded', value: String(site.foundedYear) },
-    { label: 'Products in the shop', value: String(products.length) },
-    { label: 'Free Lagos delivery over', value: naira(site.freeDeliveryOver) },
+    { label: 'Studio founded', value: String(content.site.foundedYear) },
+    { label: 'Products in the shop', value: String(productCount) },
+    { label: 'Free Lagos delivery over', value: naira(content.site.freeDeliveryOver) },
     ...(turnaround
       ? [{ label: 'Lagos turnaround', value: turnaround.value }]
       : []),
@@ -52,8 +56,12 @@ function buildNumbers() {
  * facts, closing). List-driven blocks live in AboutDetails (client) so
  * `set-list` can reach them.
  */
-export default function AboutPage() {
-  const numbers = buildNumbers();
+export default async function AboutPage() {
+  const [content, products] = await Promise.all([getContentSnapshot(), getProducts()]);
+  const { aboutPage, site } = content;
+  const numbers = buildNumbers(content, products.length);
+
+  const studioQuestion = `Hello Cra7ty Hub, I would like to ask the studio a question.`;
 
   const slots = {
     hero: (
@@ -131,7 +139,7 @@ export default function AboutPage() {
                     {aboutPage.facts.card.body}
                   </Editable>
                 </p>
-                <Button className="mt-6 w-full" href={whatsappLink(studioQuestion)}>
+                <Button className="mt-6 w-full" href={whatsappLink(studioQuestion, site.whatsappNumber)}>
                   <Editable k="about.facts.card-cta">
                     {aboutPage.facts.card.cta}
                   </Editable>
@@ -166,5 +174,11 @@ export default function AboutPage() {
 
   const order = ['hero', 'sheet', 'numbers', 'why', 'facts', 'closing'] as const;
 
-  return <SectionOrderHost slots={slots} order={order} />;
+  return (
+    <SectionOrderHost
+      slots={slots}
+      order={order}
+      published={content.pageSections.about}
+    />
+  );
 }

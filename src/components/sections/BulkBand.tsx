@@ -1,7 +1,6 @@
 'use client';
 
-import { bulkTiers } from '@/data/products';
-import { site, sections } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { naira } from '@/lib/format';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Container } from '@/components/primitives/Container';
@@ -26,6 +25,8 @@ const brief =
  * is a table of numbers and pretending otherwise would be dishonest.
  */
 export function BulkBand() {
+  const { bulkTiers, site, sections } = useSiteContent();
+
   // Edit mode: set-list on the event and tier lists replaces the rows live.
   const eventsOverride = useEditList('home.bulk.events');
   const eventRows = eventsOverride
@@ -109,7 +110,7 @@ export function BulkBand() {
 
             <Button
               className="mt-9"
-              href={whatsappLink(brief)}
+              href={whatsappLink(brief, site.whatsappNumber)}
             >
               <Editable k="home.bulk.cta-label">Send us the guest count</Editable>
               <ArrowRight size={14} />

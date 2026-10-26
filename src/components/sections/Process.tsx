@@ -1,6 +1,6 @@
 'use client';
 
-import { processSteps, sections } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { Container } from '@/components/primitives/Container';
 import { Section } from '@/components/primitives/Section';
 import { FoldSequence } from '@/components/three/FoldSequence';
@@ -17,6 +17,7 @@ import { useEditList } from '@/lib/edit/use-edit';
  * the reveal).
  */
 export function Process() {
+  const { processSteps, sections } = useSiteContent();
   const override = useEditList('home.process.steps');
   const steps = override
     ? override.map((item) => ({

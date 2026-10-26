@@ -1,8 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { faqs } from '@/data/products';
-import { sections, site } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Container } from '@/components/primitives/Container';
 import { Section } from '@/components/primitives/Section';
@@ -18,6 +17,7 @@ import { useEditList } from '@/lib/edit/use-edit';
  * questions.
  */
 export function Faq() {
+  const { faqs, sections, site } = useSiteContent();
   const baseId = useId();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
@@ -135,6 +135,7 @@ export function Faq() {
                 className="mt-6 w-full"
                 href={whatsappLink(
                   `Hello Cra7ty Hub, I have a question about an order from ${site.name}.`,
+                  site.whatsappNumber,
                 )}
               >
                 <Editable k="home.faq.card-cta">Message the studio</Editable>

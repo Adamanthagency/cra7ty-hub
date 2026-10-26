@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { navLinks, site } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { useOrder } from '@/lib/order-store';
 import { CraneMark } from '@/components/primitives/Icons';
 import { pad } from '@/lib/format';
@@ -54,6 +54,7 @@ function NavItem({
 }
 
 export function SiteNav() {
+  const { navLinks, site } = useSiteContent();
   const { count, open } = useOrder();
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();

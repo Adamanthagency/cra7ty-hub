@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { shopPage, site } from '@/data/site';
+import { getContentSnapshot } from '@/lib/content';
 import { PageHeader } from '@/components/primitives/PageHeader';
 import { Container } from '@/components/primitives/Container';
 import { ShopShelf } from '@/components/sections/ShopShelf';
@@ -8,17 +8,20 @@ import { BulkBand } from '@/components/sections/BulkBand';
 import { getCategories, getProducts } from '@/lib/catalog';
 import { SectionOrderHost } from '@/components/edit/SectionOrderHost';
 
-export const metadata: Metadata = {
-  title: 'Shop',
-  description: shopPage.metaDescription,
-  alternates: { canonical: '/shop' },
-  openGraph: {
-    title: `${shopPage.title.join(' ')} — ${site.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const { shopPage, site } = await getContentSnapshot();
+  return {
+    title: 'Shop',
     description: shopPage.metaDescription,
-    url: `${site.url}/shop`,
-    type: 'website',
-  },
-};
+    alternates: { canonical: '/shop' },
+    openGraph: {
+      title: `${shopPage.title.join(' ')} — ${site.name}`,
+      description: shopPage.metaDescription,
+      url: `${site.url}/shop`,
+      type: 'website',
+    },
+  };
+}
 
 /**
  * The whole shelf. The header and the bulk band are server-rendered; the
@@ -28,7 +31,12 @@ export const metadata: Metadata = {
  * shared with Home).
  */
 export default async function ShopPage() {
-  const [products, categories] = await Promise.all([getProducts(), getCategories()]);
+  const [content, products, categories] = await Promise.all([
+    getContentSnapshot(),
+    getProducts(),
+    getCategories(),
+  ]);
+  const { shopPage } = content;
 
   const slots = {
     header: (
@@ -57,5 +65,11 @@ export default async function ShopPage() {
 
   const order = ['header', 'shelf', 'bulk'] as const;
 
-  return <SectionOrderHost slots={slots} order={order} />;
+  return (
+    <SectionOrderHost
+      slots={slots}
+      order={order}
+      published={content.pageSections.shop}
+    />
+  );
 }

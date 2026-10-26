@@ -5,7 +5,7 @@ import { naira } from '@/lib/format';
 import { Container } from '@/components/primitives/Container';
 import { Section } from '@/components/primitives/Section';
 import { DogEarCard } from '@/components/primitives/DogEarCard';
-import { ModelArt } from '@/components/three/fallbacks';
+import { ProductMedia } from '@/components/ProductMedia';
 import { AddToOrderButton } from '@/components/AddToOrderButton';
 import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
@@ -26,13 +26,16 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
     <DogEarCard index={String(index + 1).padStart(2, '0')} className="h-full">
       <div className={`relative overflow-hidden bg-kraft-30 px-8 py-10 ${layout[index % layout.length].art}`}>
         {product.badge && (
-          <span className="mono-label-xs absolute left-5 top-5 border border-ink-24 px-2 py-1 text-ink-70">
+          <span className="mono-label-xs absolute left-5 top-5 z-10 border border-ink-24 px-2 py-1 text-ink-70">
             {product.badge}
           </span>
         )}
-        <ModelArt
-          model={product.model}
-          className={`h-full w-full ${product.model === 'crane' ? '-rotate-6' : ''}`}
+        {/* the first uploaded photo, full-bleed; no photo → the honest
+            placeholder — never 3D art */}
+        <ProductMedia
+          images={product.images ?? []}
+          name={product.name}
+          className="absolute inset-0 h-full w-full object-cover"
         />
         {/* a crease down the art, so the card reads as folded stock */}
         <span

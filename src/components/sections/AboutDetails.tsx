@@ -1,6 +1,6 @@
 'use client';
 
-import { aboutPage, site } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Container } from '@/components/primitives/Container';
 import { Button } from '@/components/primitives/Button';
@@ -33,6 +33,7 @@ const FACT_ROW_LABELS = ['Studio', 'City', 'WhatsApp', 'Email', 'Instagram'];
 
 /** The signature: one crease, four numbered stations. */
 export function AboutStations() {
+  const { aboutPage } = useSiteContent();
   const override = useEditList('about.sheet.stations');
   const stations = override
     ? override.map((item) => ({
@@ -95,10 +96,11 @@ export function AboutStations() {
  * and passed in; only the labels come from the admin's fixed list.
  */
 export function AboutNumbers({ values }: { values: readonly string[] }) {
+  const { aboutNumbersLabels } = useSiteContent();
   const override = useEditList('about.numbers.facts');
   const labels = override
     ? override.map((item) => String(item.fields.label ?? ''))
-    : NUMBER_LABELS;
+    : aboutNumbersLabels;
 
   return (
     <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -123,10 +125,11 @@ export function AboutNumbers({ values }: { values: readonly string[] }) {
 
 /** Facts and contact rows: labels from the admin's fixed list, values live. */
 export function AboutFacts() {
+  const { aboutFactRowLabels, site } = useSiteContent();
   const override = useEditList('about.facts.rows');
   const labels = override
     ? override.map((item) => String(item.fields.label ?? ''))
-    : FACT_ROW_LABELS;
+    : aboutFactRowLabels;
 
   const label = (i: number) => (
     <Editable k={`about.facts.rows.items.${i}.label`}>
@@ -181,6 +184,8 @@ export function AboutFacts() {
  * Hero's CTA hrefs.
  */
 export function AboutClosingActions() {
+  const { aboutPage, site } = useSiteContent();
+
   const primaryHref = text(
     useEditField('about.closing.primary-href'),
     aboutPage.closing.primary.href,
@@ -197,6 +202,7 @@ export function AboutClosingActions() {
       <Button
         href={whatsappLink(
           'Hello Cra7ty Hub, I would like to ask the studio a question.',
+          site.whatsappNumber,
         )}
         variant="ink"
       >

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { shopPage } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { naira, pad } from '@/lib/format';
 import { onUrlChange } from '@/lib/url-watch';
 import { DogEarCard } from '@/components/primitives/DogEarCard';
 import { Reveal } from '@/components/primitives/Reveal';
-import { ModelArt } from '@/components/three/fallbacks';
+import { ProductMedia } from '@/components/ProductMedia';
 import { AddToOrderButton } from '@/components/AddToOrderButton';
 import { ArrowRight, Search, Close } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
@@ -54,6 +54,14 @@ const SORT_ID_BY_ROW: Record<string, ShopSort> = {
 const text = (value: string | number | null, fallback: string) =>
   value === null ? fallback : String(value);
 
+/**
+ * The search status line. Not an admin content key (the static site.ts
+ * carried it as a function, which cannot cross the snapshot boundary),
+ * so it stays a local formatter with the same template.
+ */
+const searchStatus = (count: number, query: string) =>
+  `${count} ${count === 1 ? 'result' : 'results'} for “${query}”`;
+
 /** Search covers the whole shelf: name, description, pack count, badge. */
 function matchesQuery(product: Product, query: string): boolean {
   if (!query) return true;
@@ -73,13 +81,16 @@ function ShopCard({ product, index }: { product: Product; index: number }) {
     <DogEarCard index={pad(index + 1)} className="h-full">
       <div className="relative aspect-[4/3.4] overflow-hidden bg-kraft-30 px-8 py-10">
         {product.badge && (
-          <span className="mono-label-xs absolute left-5 top-5 border border-ink-24 px-2 py-1 text-ink-70">
+          <span className="mono-label-xs absolute left-5 top-5 z-10 border border-ink-24 px-2 py-1 text-ink-70">
             {product.badge}
           </span>
         )}
-        <ModelArt
-          model={product.model}
-          className={`h-full w-full ${product.model === 'crane' ? '-rotate-6' : ''}`}
+        {/* the first uploaded photo, full-bleed; no photo (or a URL
+            that dies) → the honest placeholder — never 3D art */}
+        <ProductMedia
+          images={product.images ?? []}
+          name={product.name}
+          className="absolute inset-0 h-full w-full object-cover"
         />
         {/* a crease down the art, so the card reads as folded stock */}
         <span
@@ -118,6 +129,7 @@ export function ShopShelf({
   products: Product[];
   categories: Category[];
 }) {
+  const { shopPage } = useSiteContent();
   const [activeId, setActiveId] = useState<CategoryId | null>(null);
   const [sort, setSort] = useState<ShopSort>('featured');
   /** the applied search (what the URL holds); draft is the input text */
@@ -205,7 +217,7 @@ export function ShopShelf({
         count: products.filter((product) => product.category === category.id).length,
       })),
     ],
-    [products, categories],
+    [products, categories, shopPage],
   );
 
   const visible = useMemo(() => {
@@ -352,7 +364,7 @@ export function ShopShelf({
       <div className="col-span-12 lg:col-span-9">
         {query && (
           <p role="status" className="mono-label-xs mb-5 text-ink-40">
-            {shopPage.searchStatus(visible.length, query)}
+            {searchStatus(visible.length, query)}
           </p>
         )}
 

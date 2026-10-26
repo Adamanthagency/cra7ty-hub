@@ -1,6 +1,6 @@
 'use client';
 
-import { aboutPage } from '@/data/site';
+import { useSiteContent } from '@/components/site-content-provider';
 import { Container } from '@/components/primitives/Container';
 import { MaskedLines } from '@/components/primitives/Reveal';
 import { CraneArt } from '@/components/three/fallbacks';
@@ -33,6 +33,8 @@ const text = (value: string | number | null, fallback: string) =>
  * replays the mask.
  */
 export function AboutHero() {
+  const { aboutPage } = useSiteContent();
+
   const line0 = text(
     useEditField('about.hero.headline.0'),
     aboutPage.hero.headline[0],

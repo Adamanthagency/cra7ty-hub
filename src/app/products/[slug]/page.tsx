@@ -1,15 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getProductBySlug, getProductsByCategory, products } from '@/data/products';
-import { site } from '@/data/site';
+import {
+  getProductBySlug,
+  getProducts,
+  getProductsByCategory,
+} from '@/lib/catalog';
+import { getContentSnapshot } from '@/lib/content';
 import { naira } from '@/lib/format';
 import { Container } from '@/components/primitives/Container';
 import { Button } from '@/components/primitives/Button';
 import { DogEarCard } from '@/components/primitives/DogEarCard';
-import { ProductViewer } from '@/components/three/ProductViewer';
-import { ModelArt } from '@/components/three/fallbacks';
-import { AddToOrderButton } from '@/components/AddToOrderButton';
+import { ProductGallery } from '@/components/ProductGallery';
+import { ProductMedia } from '@/components/ProductMedia';
+import { ProductPurchase } from '@/components/ProductPurchase';
 import { FoldDivider } from '@/components/primitives/FoldDivider';
 import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
@@ -17,12 +21,16 @@ import { SectionOrderHost } from '@/components/edit/SectionOrderHost';
 
 type Params = { params: { slug: string } };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const products = await getProducts();
   return products.map((product) => ({ slug: product.slug }));
 }
 
-export function generateMetadata({ params }: Params): Metadata {
-  const product = getProductBySlug(params.slug);
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const [product, { site }] = await Promise.all([
+    getProductBySlug(params.slug),
+    getContentSnapshot(),
+  ]);
   if (!product) return { title: 'Not found' };
   return {
     title: product.name,
@@ -43,11 +51,14 @@ export function generateMetadata({ params }: Params): Metadata {
  * related, breadcrumb). Product names, prices, specs and body copy come
  * from the Products manager, not the content keys.
  */
-export default function ProductPage({ params }: Params) {
-  const product = getProductBySlug(params.slug);
+export default async function ProductPage({ params }: Params) {
+  const [product, content] = await Promise.all([
+    getProductBySlug(params.slug),
+    getContentSnapshot(),
+  ]);
   if (!product) notFound();
 
-  const related = getProductsByCategory(product.category)
+  const related = (await getProductsByCategory(product.category))
     .filter((p) => p.id !== product.id)
     .slice(0, 3);
 
@@ -83,15 +94,11 @@ export default function ProductPage({ params }: Params) {
           <div className="col-span-12 lg:col-span-7">
             <div className="dogear relative aspect-[4/3] bg-kraft-30 px-10 py-12">
               {product.badge && (
-                <span className="mono-label-xs absolute left-6 top-6 border border-ink-24 px-2 py-1 text-ink-70">
+                <span className="mono-label-xs absolute left-6 top-6 z-10 border border-ink-24 px-2 py-1 text-ink-70">
                   {product.badge}
                 </span>
               )}
-              <ProductViewer
-                model={product.model}
-                className="h-full w-full"
-                label={`${product.name} — ${product.description}`}
-              />
+              <ProductGallery name={product.name} images={product.images ?? []} />
             </div>
           </div>
 
@@ -100,29 +107,16 @@ export default function ProductPage({ params }: Params) {
               {product.name}
             </h1>
 
-            <div className="mt-5 flex items-baseline gap-3 border-y border-ink-12 py-4">
-              <span className="mono-label text-2xl tabular-nums">{naira(product.price)}</span>
-              <span className="mono-label-xs text-ink-40">{product.packCount}</span>
-            </div>
-
-            <p className="mt-6 text-base leading-relaxed text-ink-70">
-              {product.description}
-            </p>
-
-            <div className="mt-7">
-              <AddToOrderButton
-                product={product}
-                className="w-full"
-                label="Add to order"
-                editableLabel
-              />
-              <p className="mono-label-xs mt-3 text-ink-40">
-                <Editable k="product.buy.whatsapp-note">
-                  Nothing is charged here. The order arrives on WhatsApp for
-                  confirmation.
-                </Editable>
+            {/* price row → description → variant picker → stock → add: one
+                client state (selection) drives price, stock and the line
+                that lands in the order. With no variants the picker and
+                stock line never mount — markup matches the old server
+                render exactly. */}
+            <ProductPurchase product={product}>
+              <p className="mt-6 text-base leading-relaxed text-ink-70">
+                {product.description}
               </p>
-            </div>
+            </ProductPurchase>
 
             <div className="mt-8 border-t border-ink-12 pt-5">
               <Button
@@ -221,8 +215,12 @@ export default function ProductPage({ params }: Params) {
               <li key={item.id}>
                 <DogEarCard size="sm">
                   <Link href={`/products/${item.slug}`} className="block">
-                    <div className="h-44 bg-kraft-30 px-8 py-6">
-                      <ModelArt model={item.model} className="h-full w-full" />
+                    <div className="relative h-44 bg-kraft-30">
+                      <ProductMedia
+                        images={item.images ?? []}
+                        name={item.name}
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
                     </div>
                     <div className="flex items-baseline justify-between gap-3 p-4">
                       <span className="text-sm font-medium">{item.name}</span>
@@ -241,5 +239,11 @@ export default function ProductPage({ params }: Params) {
 
   const order = ['breadcrumb', 'buy', 'detail', 'specification', 'related'] as const;
 
-  return <SectionOrderHost slots={slots} order={order} />;
+  return (
+    <SectionOrderHost
+      slots={slots}
+      order={order}
+      published={content.pageSections.product}
+    />
+  );
 }

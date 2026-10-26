@@ -21,6 +21,29 @@ export type CategoryId =
   | 'bulk'
   | 'paper';
 
+/** Which axis a product variant belongs to — same three as the admin. */
+export type VariantType = 'colour' | 'size' | 'material';
+
+/**
+ * One variant option, as the admin's Products manager stores it in
+ * products.variants (jsonb). Mirrors the admin's ProductVariant exactly —
+ * stock and priceOverride are optional there, so they stay optional here.
+ * The storefront only ever receives `active` variants (catalog.ts filters).
+ */
+export interface ProductVariant {
+  /** Stable id, unique within the product. */
+  id: string;
+  type: VariantType;
+  /** Display value: colour name, size name, material name. */
+  value: string;
+  /** For colour variants: the hex behind the swatch. */
+  hex?: string;
+  /** Per-variant stock; falls back to product stock when undefined. */
+  stock?: number;
+  /** Per-variant price override in whole naira. */
+  priceOverride?: number;
+}
+
 export interface Product {
   /** stable id, used in order lines */
   id: string;
@@ -40,10 +63,16 @@ export interface Product {
   packCount?: string;
   /** physical size, shown where relevant */
   size?: string;
+  /** photographs picked in the admin's media library (Storage URLs); none by default */
+  images?: string[];
   /** longer editorial notes for the detail route */
   detail: string[];
   /** secondary facts shown in the detail spec table */
   specs: { label: string; value: string }[];
+  /** Active variants for the detail-page picker; absent = no variants (static /data copy). */
+  variants?: ProductVariant[];
+  /** Whole units in stock — fallback when no selected variant defines its own. */
+  stock?: number;
 }
 
 export interface Category {
@@ -64,6 +93,18 @@ export interface OrderLine {
   unitPrice: number;
   quantity: number;
   model: ModelKey;
+  /** The product's photos at add time (upload order). Optional because
+   *  lines stored before the photo stage lack it — the drawer then shows
+   *  the "No photo yet" placeholder rather than art. */
+  images?: string[];
+  /** Variant ids of this line, axis-ordered (colour, size, material).
+   *  Absent = the base product. Lines differ only by variant are separate
+   *  lines, keyed `productId::variantKey`. Lines stored before the variant
+   *  stage lack it — they behave as base lines. */
+  variantKey?: string;
+  /** Human label of the selection ("Kraft / A4"), shown in the drawer and
+   *  appended to the WhatsApp line. */
+  variantLabel?: string;
 }
 
 export interface BulkTier {
