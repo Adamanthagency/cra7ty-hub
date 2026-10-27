@@ -10,11 +10,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const description =
     'Look up a Cra7ty Hub order with its number and the email or phone used at checkout.';
   return {
-    title: 'Track your order',
+    title: 'My Order',
     description,
     alternates: { canonical: '/tracker' },
     openGraph: {
-      title: `Track your order — ${site.name}`,
+      title: `My Order — ${site.name}`,
       description,
       url: `${site.url}/tracker`,
       type: 'website',
@@ -23,10 +23,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * The customer-facing order status page (Tier 4 follow-on): a lookup
- * form, not a dashboard — no customer accounts exist, so the order
- * number plus the checkout email/phone is the authentication, handled
- * by POST /api/orders/lookup (rate-limited, generic misses).
+ * The customer-facing order status page (Tier 4 follow-on, extended in
+ * Tier 5): a lookup form, not a dashboard — no customer accounts exist,
+ * so the order number plus the checkout email/phone is the
+ * authentication, handled by POST /api/orders/lookup (rate-limited,
+ * generic misses).
+ *
+ * TIER 5 — the route, the lookup logic and the fulfillment-status
+ * display are unchanged; the page is only RELABELLED to "My Order" and
+ * the result view now also renders digital downloads when the order has
+ * any (see DownloadBlock).
  *
  * Three seeded sections host in edit mode: header (page title/lede),
  * search (the form card) and statuses (the legend strip). The h1 is
@@ -51,7 +57,7 @@ export default async function TrackerPage() {
               className="text-display-md font-display leading-[0.94] tracking-[-0.02em]"
             >
               <span className="block">
-                <Editable k="tracker.header.title">Track your order</Editable>
+                <Editable k="tracker.header.title">My Order</Editable>
               </span>
             </h1>
           </div>

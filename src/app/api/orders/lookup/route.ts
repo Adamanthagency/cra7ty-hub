@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { rateLimit, rest, rpc, serviceConfigured } from '@/lib/server/supabase-server';
+import { buildDownloadViews, loadGrants } from '@/lib/server/downloads';
+import { identityMatches } from '@/lib/server/order-identity';
 
 /**
  * POST /api/orders/lookup — the public customer-facing status lookup
@@ -64,19 +66,11 @@ interface ItemRow {
   line_total: number;
 }
 
-/** Trim + casefold: emails compare case-insensitively. */
-const normEmail = (value: string): string => value.trim().toLowerCase();
-
 /**
- * Digit-string with 234↔0 equivalence, so `0915 734 1181`,
- * `09157341181` and `+2349157341181` all canonicalize the same way.
+ * The email/phone comparison itself now lives in
+ * src/lib/server/order-identity.ts, shared with the resend endpoint so
+ * the two can never disagree about what counts as a match.
  */
-const normPhone = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  return digits.length > 11 && digits.startsWith('234')
-    ? `0${digits.slice(3)}`
-    : digits;
-};
 
 /**
  * Status precedence (plan): refunded > cancelled > failed > awaiting >
@@ -156,11 +150,7 @@ export async function POST(request: NextRequest) {
   }
   const row = data[0];
 
-  const emailMatch =
-    email !== '' && normEmail(email) === normEmail(row.customer_email);
-  const phoneMatch =
-    phone !== '' && normPhone(phone) === normPhone(row.customer_phone);
-  if (!emailMatch && !phoneMatch) {
+  if (!identityMatches({ email, phone }, row)) {
     return NextResponse.json(NOT_FOUND, { status: 404 });
   }
 
@@ -171,6 +161,13 @@ export async function POST(request: NextRequest) {
       '&select=product_name,variant_label,quantity,unit_price,line_total' +
       '&order=position.asc',
   );
+
+  // Digital downloads ride along ONLY after the identity match above —
+  // a miss never reaches this line, so a wrong email cannot learn
+  // whether the order has files. Each URL is minted fresh here (they
+  // expire, so nothing is cached or stored for the browser).
+  const grants = await loadGrants(row.id);
+  const downloads = grants.length > 0 ? await buildDownloadViews(grants) : [];
 
   return NextResponse.json(
     {
@@ -187,6 +184,7 @@ export async function POST(request: NextRequest) {
       subtotal: row.subtotal,
       discount: row.discount,
       total: row.total,
+      ...(downloads.length > 0 ? { downloads } : {}),
     },
     {
       headers: {

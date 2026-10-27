@@ -356,6 +356,10 @@ export const faqs: FaqItem[] = [
     q: 'Do you fold custom designs?',
     a: 'We do. Send a sketch, a logo or a photograph of the thing you want and we will fold one as a sample before quoting the rest. Custom folds start at three days for a sample and ten days for a run of fifty.',
   },
+  {
+    q: 'Where do I get my digital download?',
+    a: 'The confirmation email arrives the moment your payment clears, with a fresh link that stays good for 72 hours. If you missed it, open My Order in the menu, enter your order number with the email or phone you paid with, and every file you bought is listed there — with a Resend button if the link has run out. That page is the backup; the email is the fast path.',
+  },
 ];
 
 /** Product ids that make up the category counts, kept next to the products. */

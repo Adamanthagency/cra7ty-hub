@@ -8,6 +8,7 @@ import { useSiteContent } from '@/components/site-content-provider';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Editable } from '@/components/edit/Editable';
 import { Check } from '@/components/primitives/Icons';
+import { DownloadBlock, type DownloadItem } from '@/components/DownloadBlock';
 
 /**
  * Where Paystack sends the buyer back to (the callback_url set in
@@ -44,6 +45,9 @@ function SuccessClient() {
 
   const [state, setState] = useState<State>('verifying');
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  // Digital downloads, minted by the verify call. Kept separate from
+  // orderNumber because a paid order with no files is the common case.
+  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const cleared = useRef(false);
 
   const verify = useCallback(async () => {
@@ -59,6 +63,7 @@ function SuccessClient() {
         alreadyProcessed?: boolean;
         orderNumber?: string;
         needsReview?: boolean;
+        downloads?: DownloadItem[];
         error?: string;
       } | null;
 
@@ -72,6 +77,7 @@ function SuccessClient() {
       }
       if (data.paid) {
         setOrderNumber(data.orderNumber ?? null);
+        setDownloads(data.downloads ?? []);
         if (!cleared.current) {
           cleared.current = true;
           clear(); // the bought items leave the cart — confirmed only now
@@ -149,6 +155,19 @@ function SuccessClient() {
                   confirm on WhatsApp.
                 </Editable>
               </p>
+            )}
+
+            {/* Tier 5: instant access. Same signed links the confirmation
+                email carries — the success page is the fast path, the
+                email the backup for when this tab is gone. */}
+            {downloads.length > 0 && orderNumber && (
+              <div className="mt-7 border-t border-ink-24 pt-6">
+                <DownloadBlock
+                  downloads={downloads}
+                  orderNumber={orderNumber}
+                  identity={{}}
+                />
+              </div>
             )}
           </>
         )}
@@ -231,7 +250,7 @@ function SuccessClient() {
             <Link href="/tracker" className="btn btn-secondary">
               <span>
                 <Editable k="global.order-drawer.track-order-label">
-                  Track this order
+                  My Order
                 </Editable>
               </span>
             </Link>

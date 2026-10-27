@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { rateLimit, rpc, serviceConfigured } from '@/lib/server/supabase-server';
 import { verifyTransaction } from '@/lib/server/paystack';
+import { buildDownloadViews, loadGrants } from '@/lib/server/downloads';
+import { deliverOrderConfirmation } from '@/lib/server/order-confirmation';
 
 /**
  * POST /api/checkout/verify — backup confirmation path (public, rate-limited).
@@ -16,6 +18,12 @@ import { verifyTransaction } from '@/lib/server/paystack';
  * The reference is the only client input here, and it's shape-checked:
  * create_checkout_order generated it server-side as chr_<32 hex>, so a
  * malformed value can't probe anything.
+ *
+ * TIER 5: also the response that feeds the success page's download
+ * block. It returns freshly signed URLs for any digital grants on the
+ * order and, when it is the path that actually confirmed the payment,
+ * sends the order confirmation email (see order-confirmation.ts for why
+ * exactly one of webhook/verify does that).
  */
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +78,7 @@ export async function POST(request: NextRequest) {
     const result = await rpc<{
       ok: boolean;
       alreadyProcessed: boolean;
+      orderId: string;
       orderNumber: string;
       paymentStatus: string;
       status: string;
@@ -83,6 +92,25 @@ export async function POST(request: NextRequest) {
       p_source: 'verify',
     });
 
+    // The confirmation email goes out from exactly one of the two paths
+    // — whichever sees alreadyProcessed=false first. The webhook may
+    // already have sent it; if so this is a no-op. Failures are logged
+    // inside and never change the buyer's answer: a paid order must not
+    // become an error because Resend was down.
+    if (!result.alreadyProcessed && !result.needsReview) {
+      const delivery = await deliverOrderConfirmation(result.orderId);
+      if (!delivery.sent) {
+        console.error('[checkout] confirmation email not sent:', delivery.reason);
+      }
+    }
+
+    // Digital links for the success page, minted fresh on every call
+    // (they expire, so nothing is cached). Works whether or not THIS
+    // call was the one that confirmed — the grants are already in the
+    // database either way.
+    const grants = await loadGrants(result.orderId);
+    const downloads = grants.length > 0 ? await buildDownloadViews(grants) : [];
+
     return NextResponse.json({
       paid: true,
       alreadyProcessed: result.alreadyProcessed,
@@ -91,6 +119,7 @@ export async function POST(request: NextRequest) {
       status: result.status,
       needsReview: result.needsReview,
       reviewReason: result.reviewReason,
+      ...(downloads.length > 0 ? { downloads } : {}),
     });
   } catch (error) {
     const message = (error as Error).message ?? '';

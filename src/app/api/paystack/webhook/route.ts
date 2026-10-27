@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { rest, rpc, serviceConfigured } from '@/lib/server/supabase-server';
 import { isValidWebhookSignature, paystackSecret } from '@/lib/server/paystack';
+import { deliverOrderConfirmation } from '@/lib/server/order-confirmation';
 
 /**
  * POST /api/paystack/webhook — the PRIMARY payment confirmation path.
@@ -24,6 +25,10 @@ import { isValidWebhookSignature, paystackSecret } from '@/lib/server/paystack';
  *      and unknown references / unhandled events must not retry forever.
  *      A genuine infrastructure failure (RPC down) answers 500 so
  *      Paystack DOES retry — idempotency makes the retry safe.
+ *   6. TIER 5: a freshly-confirmed order also triggers the confirmation
+ *      email (with digital download links when there are any), sent
+ *      only when this delivery was the one that confirmed. Email
+ *      failure never changes the response code.
  *
  * No rate limit here: the signature IS the authentication, and every
  * request costs a constant-time comparison plus (for known events) one
@@ -73,6 +78,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = await rpc<{
         alreadyProcessed: boolean;
+        orderId: string;
         orderNumber: string;
         paymentStatus: string;
         status: string;
@@ -83,6 +89,20 @@ export async function POST(request: NextRequest) {
         p_amount_kobo: amountKobo,
         p_source: 'webhook',
       });
+
+      // TIER 5: the confirmation email. Only the path that actually
+      // performed the confirmation sends it (alreadyProcessed=false),
+      // so webhook + success-page verify can never both mail the same
+      // buyer. A failure is logged and deliberately NOT turned into a
+      // 500: Paystack retries non-2xx, and retrying a confirmation we
+      // already applied would only re-enter the idempotent path.
+      if (!result.alreadyProcessed && !result.needsReview) {
+        const delivery = await deliverOrderConfirmation(result.orderId);
+        if (!delivery.sent) {
+          console.error('[webhook] confirmation email not sent:', delivery.reason);
+        }
+      }
+
       return NextResponse.json({
         received: true,
         alreadyProcessed: result.alreadyProcessed,

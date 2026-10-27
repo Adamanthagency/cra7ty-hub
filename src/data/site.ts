@@ -37,7 +37,7 @@ export const navLinks = [
   { label: 'Bulk Orders', href: '/#bulk' },
   { label: 'Blog', href: '/blog' },
   { label: 'About', href: '/about' },
-  { label: 'Track your order', href: '/tracker' },
+  { label: 'My Order', href: '/tracker' },
 ] as const;
 
 /** Words for the mono marquee strip under the hero. */
@@ -301,7 +301,7 @@ export const footer = {
         { label: 'Bulk pricing', href: '/#bulk' },
         { label: 'Delivery', href: '/#faq' },
         { label: 'FAQ', href: '/#faq' },
-        { label: 'Track your order', href: '/tracker' },
+        { label: 'My Order', href: '/tracker' },
       ],
     },
     {
