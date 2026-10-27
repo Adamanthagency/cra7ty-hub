@@ -224,6 +224,18 @@ function SuccessClient() {
               </span>
             </Link>
           )}
+          {/* Payment landed → the customer's natural next question is
+              "where is it?" — hand them the tracker with the order number
+              they just saw on this page. */}
+          {(state === 'paid' || state === 'flagged') && (
+            <Link href="/tracker" className="btn btn-secondary">
+              <span>
+                <Editable k="global.order-drawer.track-order-label">
+                  Track this order
+                </Editable>
+              </span>
+            </Link>
+          )}
           {(state === 'unpaid' || state === 'invalid') && (
             <a
               href={whatsappLink(

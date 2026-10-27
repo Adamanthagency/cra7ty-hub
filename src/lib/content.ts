@@ -349,6 +349,9 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
       L('about.numbers.facts')?.map((item) => F(item, 'label')) ?? s.aboutNumbersLabels,
     aboutFactRowLabels:
       L('about.facts.rows')?.map((item) => F(item, 'label')) ?? s.aboutFactRowLabels,
+    trackerStatusLabels:
+      L('tracker.statuses')?.map((item) => F(item, 'label')) ??
+      s.trackerStatusLabels,
     processSteps,
     whyPoints,
     testimonials,

@@ -95,6 +95,34 @@ export function Check({ className, size }: IconProps) {
   return line({ className, size, d: <path d="M2 8.5 6 12.5 14 3.5" /> });
 }
 
+/** Indeterminate ring for the checkout button's pending state. */
+export function Spinner({ className, size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+      className={`${base} ${className}`.trim()}
+    >
+      <circle
+        cx="8" cy="8" r="6"
+        stroke="currentColor"
+        strokeOpacity="0.25"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M8 2a6 6 0 0 1 6 6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+    </svg>
+  );
+}
+
 /** Magnifier for the shop's search bar. */
 export function Search({ className, size }: IconProps) {
   return line({

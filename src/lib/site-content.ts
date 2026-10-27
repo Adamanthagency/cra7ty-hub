@@ -138,6 +138,9 @@ export interface SiteContent {
   /** fixed admin lists behind the About numbers strip and facts rows */
   aboutNumbersLabels: string[];
   aboutFactRowLabels: string[];
+  /** the admin's fixed tracker.statuses list — the customer-facing status
+   *  legend and result labels (Pending / Confirmed / In transit / …) */
+  trackerStatusLabels: string[];
   processSteps: { index: string; title: string; body: string }[];
   whyPoints: { index: string; title: string; body: string }[];
   testimonials: { quote: string; name: string; city: string; placeholder: boolean }[];
@@ -293,6 +296,13 @@ export const staticSiteContent: SiteContent = {
     'Lagos turnaround',
   ],
   aboutFactRowLabels: ['Studio', 'City', 'WhatsApp', 'Email', 'Instagram'],
+  trackerStatusLabels: [
+    'Pending',
+    'Confirmed',
+    'In transit',
+    'Delivered',
+    'Cancelled',
+  ],
   processSteps: staticProcessSteps.map((step) => ({ ...step })),
   whyPoints: staticWhyPoints.map((point) => ({ ...point })),
   testimonials: staticTestimonials.map((item) => ({ ...item })),
