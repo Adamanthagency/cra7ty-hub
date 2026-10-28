@@ -58,8 +58,7 @@ export const hero = {
   headline: ['Folded by hand,', 'shipped from Lagos.'],
   /** rendered in italic inside the second line by the component */
   emphasisWord: 'shipped',
-  subline:
-    'Origami cranes, pressed paper plates, party packs and gift wrap. Counted, stacked and wrapped to order — then sent to you on WhatsApp.',
+  subline: 'exploring the diversity of paper art and crafts',
   primaryCta: { label: 'Shop paper goods', href: '#shop' },
   secondaryCta: { label: 'Custom origami orders', href: '#bulk' },
   stats: [
