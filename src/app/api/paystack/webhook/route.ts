@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { rest, rpc, serviceConfigured } from '@/lib/server/supabase-server';
 import { isValidWebhookSignature, paystackSecret } from '@/lib/server/paystack';
 import { deliverOrderConfirmation } from '@/lib/server/order-confirmation';
-import { confirmEventRegistration } from '@/lib/server/events';
+import { confirmEventRegistration, revalidateEventPages } from '@/lib/server/events';
 import { deliverEventTicket } from '@/lib/server/event-ticket';
 
 /**
@@ -89,6 +89,12 @@ export async function POST(request: NextRequest) {
     if (reference.startsWith('evr_')) {
       try {
         const result = await confirmEventRegistration(reference, amountKobo, 'webhook');
+        if (!result.alreadyProcessed) {
+          // A fresh confirmation can consume the last seat — bust the
+          // workshops caches immediately so the page says Full —
+          // waitlist open instead of selling a seat that is gone.
+          revalidateEventPages();
+        }
         if (!result.alreadyProcessed && !result.needsReview && result.attendeeEmail) {
           const delivery = await deliverEventTicket(reference, result.attendeeEmail);
           if (!delivery.sent) {

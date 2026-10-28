@@ -10,8 +10,34 @@
  * Server-only: never imported by client components, never NEXT_PUBLIC_.
  */
 
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { rateLimit, rest, rpc } from '@/lib/server/supabase-server';
 import { escapeHtml, sendEmail } from '@/lib/server/order-email';
+
+/* ------------------------------------------------------------------ */
+/* cache busting — the moment a seat changes hands                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The workshops listing and detail pages are ISR (60s) over an RPC
+ * fetch that is itself cached 300s under the 'db:events' tag — so a
+ * just-FULL event would otherwise keep rendering the PAY form for
+ * minutes after the last seat was paid for (and its error tells the
+ * buyer to "use the waitlist form below" that the stale render never
+ * included). Every confirmation path calls this after a fresh
+ * confirm so the flip to "Full — waitlist open" happens in seconds.
+ */
+export function revalidateEventPages(): void {
+  try {
+    revalidateTag('db:events'); // the get_published_events fetch cache
+    revalidatePath('/workshops'); // the listing page (ISR 60s)
+    revalidatePath('/workshops/[slug]'); // every event detail page
+  } catch (error) {
+    // A failed revalidation must never fail the payment confirmation
+    // it accompanies — the pages catch up on their own within 60s.
+    console.error('[events] revalidate failed:', (error as Error).message);
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* create — server-priced pending registration                         */

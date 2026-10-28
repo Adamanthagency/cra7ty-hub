@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { serviceConfigured } from '@/lib/server/supabase-server';
 import { verifyTransaction } from '@/lib/server/paystack';
-import { confirmEventRegistration, eventsRateLimit, loadTicket } from '@/lib/server/events';
+import { confirmEventRegistration, eventsRateLimit, loadTicket, revalidateEventPages } from '@/lib/server/events';
 import { deliverEventTicket } from '@/lib/server/event-ticket';
 
 /**
@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await confirmEventRegistration(reference, verified.amount, 'verify');
+
+    if (!result.alreadyProcessed) {
+      // A fresh confirmation can take the event's last seat — flip the
+      // listing/detail caches now, not in five minutes.
+      revalidateEventPages();
+    }
 
     if (!result.alreadyProcessed && !result.needsReview) {
       // The confirming path mails the ticket — webhook and verify can

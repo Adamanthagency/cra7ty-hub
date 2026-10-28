@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/primitives/Button';
+import { EventWaitlistForm } from '@/components/EventWaitlistForm';
 import { naira } from '@/lib/format';
 
 /**
@@ -46,7 +47,10 @@ export function EventRegisterForm({ eventId, eventName, priceNaira }: Props) {
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [waitlistHint, setWaitlistHint] = useState(false);
+  // The server said event_full while this (possibly cached) render
+  // still showed the PAY form: swap to the waitlist form right here,
+  // because "use the waitlist form below" is a lie until it exists.
+  const [soldOut, setSoldOut] = useState(false);
 
   const free = priceNaira === 0;
 
@@ -54,7 +58,6 @@ export function EventRegisterForm({ eventId, eventName, priceNaira }: Props) {
     event.preventDefault();
     if (busy) return;
     setError(null);
-    setWaitlistHint(false);
 
     if (!name.trim() || !email.trim() || !phone.trim() || !email.includes('@')) {
       setError('Fill in your name, email and phone — all three are needed for the ticket.');
@@ -71,8 +74,11 @@ export function EventRegisterForm({ eventId, eventName, priceNaira }: Props) {
       const body = (await response.json().catch(() => null)) as (RegisterOk & RegisterFail) | null;
 
       if (!response.ok || !body) {
-        if (body?.waitlistAvailable) setWaitlistHint(true);
-        setError(body?.message ?? 'Could not start registration — try again.');
+        if (body?.waitlistAvailable) {
+          setSoldOut(true);
+        } else {
+          setError(body?.message ?? 'Could not start registration — try again.');
+        }
         setBusy(false);
         return;
       }
@@ -98,6 +104,13 @@ export function EventRegisterForm({ eventId, eventName, priceNaira }: Props) {
       setBusy(false);
     }
   };
+
+  // Full and the page has not caught up yet: the waitlist form takes
+  // over this panel. It carries its own copy ("Full — waitlist open"),
+  // so the error is rendered by IT, not repeated here.
+  if (soldOut) {
+    return <EventWaitlistForm eventId={eventId} />;
+  }
 
   return (
     <form onSubmit={submit} noValidate>
@@ -151,7 +164,6 @@ export function EventRegisterForm({ eventId, eventName, priceNaira }: Props) {
       {error && (
         <p role="alert" className="mt-4 border-l-2 border-vermilion pl-3 text-sm text-ink-70">
           {error}
-          {waitlistHint && ' Use the waitlist form below to ask for a spot if one frees up.'}
         </p>
       )}
 

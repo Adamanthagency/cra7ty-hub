@@ -6,6 +6,7 @@ import {
   createEventRegistration,
   eventsRateLimit,
   loadTicket,
+  revalidateEventPages,
 } from '@/lib/server/events';
 import { deliverEventTicket } from '@/lib/server/event-ticket';
 
@@ -117,6 +118,11 @@ export async function POST(request: NextRequest) {
   if (created.eventFree) {
     try {
       const confirmed = await confirmEventRegistration(created.reference, 0, 'free');
+      if (!confirmed.alreadyProcessed) {
+        // The free path seats the attendee inside this request — the
+        // pages must know before the next visitor arrives.
+        revalidateEventPages();
+      }
       const ticket = await loadTicket(created.reference);
       if (!confirmed.needsReview && !confirmed.alreadyProcessed) {
         // The confirming call mails the ticket — exactly-once, same as
