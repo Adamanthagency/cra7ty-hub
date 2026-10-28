@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { rest, rpc, serviceConfigured } from '@/lib/server/supabase-server';
 import { isValidWebhookSignature, paystackSecret } from '@/lib/server/paystack';
 import { deliverOrderConfirmation } from '@/lib/server/order-confirmation';
+import { confirmEventRegistration } from '@/lib/server/events';
+import { deliverEventTicket } from '@/lib/server/event-ticket';
 
 /**
  * POST /api/paystack/webhook — the PRIMARY payment confirmation path.
@@ -29,6 +31,12 @@ import { deliverOrderConfirmation } from '@/lib/server/order-confirmation';
  *      email (with digital download links when there are any), sent
  *      only when this delivery was the one that confirmed. Email
  *      failure never changes the response code.
+ *   7. TIER 6: references dispatch by prefix — chr_ follows the order
+ *      path above, evr_ follows the identical event path
+ *      (confirm_event_registration + the ticket email, same
+ *      already-confirmed guard). One signature gate serves both.
+ *      charge.failed moves a pending event registration to failed the
+ *      same way it does a pending order.
  *
  * No rate limit here: the signature IS the authentication, and every
  * request costs a constant-time comparison plus (for known events) one
@@ -75,6 +83,38 @@ export async function POST(request: NextRequest) {
   if (event === 'charge.success' && reference) {
     const amountKobo =
       typeof payload.data?.amount === 'number' ? payload.data.amount : 0;
+
+    /* TIER 6 — event registrations: the same confirm + email shape the
+     * order path uses, on its own idempotent RPC. */
+    if (reference.startsWith('evr_')) {
+      try {
+        const result = await confirmEventRegistration(reference, amountKobo, 'webhook');
+        if (!result.alreadyProcessed && !result.needsReview && result.attendeeEmail) {
+          const delivery = await deliverEventTicket(reference, result.attendeeEmail);
+          if (!delivery.sent) {
+            console.error('[webhook] ticket email not sent:', delivery.reason);
+          }
+        }
+        return NextResponse.json({
+          received: true,
+          alreadyProcessed: result.alreadyProcessed,
+          needsReview: result.needsReview,
+          reviewReason: result.reviewReason,
+        });
+      } catch (error) {
+        const message = (error as Error).message ?? '';
+        if (message.startsWith('registration_not_found')) {
+          // Not ours (or an ancient reference): acknowledge so Paystack
+          // doesn't retry a delivery we'll never be able to apply.
+          return NextResponse.json({ ignored: 'unknown_reference' });
+        }
+        // Infrastructure failure — 500 so Paystack retries; the RPC is
+        // idempotent, so a later retry never double-confirms.
+        console.error('[webhook] confirm_event_registration failed');
+        return NextResponse.json({ error: 'processing_failed' }, { status: 500 });
+      }
+    }
+
     try {
       const result = await rpc<{
         alreadyProcessed: boolean;
@@ -126,6 +166,17 @@ export async function POST(request: NextRequest) {
   if (event === 'charge.failed' && reference) {
     // Pending → failed only: a failed attempt must never overwrite an
     // already-confirmed payment (a later retry can still succeed).
+    // TIER 6: the same rule on event registrations, dispatched by
+    // reference prefix.
+    if (reference.startsWith('evr_')) {
+      await rest(
+        'PATCH',
+        'event_registrations',
+        `reference=eq.${encodeURIComponent(reference)}&payment_status=eq.pending`,
+        { payment_status: 'failed', updated_at: new Date().toISOString() },
+      );
+      return NextResponse.json({ received: true });
+    }
     await rest(
       'PATCH',
       'orders',

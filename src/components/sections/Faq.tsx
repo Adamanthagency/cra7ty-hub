@@ -142,7 +142,7 @@ export function Faq() {
               </h3>
               <p className="mt-4 text-sm leading-relaxed text-ink-70">
                 <Editable k="home.faq.card-body">
-                  Messages go to the studio in Surulere, not to a queue. Send a
+                  Messages go to the studio in Okota, not to a queue. Send a
                   photo of your event colours and we will tell you what we can
                   actually make, and what it costs.
                 </Editable>

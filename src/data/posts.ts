@@ -108,7 +108,7 @@ export const posts: BlogPost[] = [
     model: 'sheet',
     body: [
       'Flat is a feature. A fortnight of tableware for a hundred people rides in a courier carton the size of a shoebox — roughly a fifth of the space the same count in rigid plastic would need, and a fifth of the weight a rider has to carry up to a third-floor flat.',
-      'Lagos is same day when the order lands before 2pm, or collect from the studio in Surulere. Abuja, Port Harcourt and Ibadan are two to three working days by parcel. Everywhere else is three to five working days, and if a bus terminal is cheaper than the courier we will hand it to the terminal and send you the waybill.',
+      'Lagos is same day when the order lands before 2pm, or collect from the studio in Okota. Abuja, Port Harcourt and Ibadan are two to three working days by parcel. Everywhere else is three to five working days, and if a bus terminal is cheaper than the courier we will hand it to the terminal and send you the waybill.',
       'Paper survives the trip because it is packed flat and counted before it is taped: plates in stacks of twenty-five, spoons and cups banded, origami in kraft pockets, gift-wrap sheets in a board sleeve. If something does crease in transit, a photograph within twenty-four hours gets the pack replaced free.',
       'The folded pieces are the exception — cranes, boxes, flowers. Those travel in sleeves, in a box that keeps them from being leaned on, and they are the reason every carton gets marked before it leaves the table.',
     ],

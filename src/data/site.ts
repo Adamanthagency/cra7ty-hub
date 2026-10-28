@@ -21,7 +21,7 @@ export const site = {
   instagram: 'cra7tyhub',
   instagramUrl: 'https://instagram.com/cra7tyhub',
   city: 'Lagos, Nigeria',
-  studio: 'No. 14, Glover Road, Surulere, Lagos',
+  studio: 'Victory Estate, Ago Palace Way, Okota, Lagos',
   foundedYear: 2019,
   freeDeliveryOver: 50000,
 } as const;
@@ -35,6 +35,7 @@ export const navLinks = [
   { label: 'Origami', href: '/shop?category=origami' },
   { label: 'Party Packs', href: '/shop?category=party' },
   { label: 'Bulk Orders', href: '/#bulk' },
+  { label: 'Workshops', href: '/workshops' },
   { label: 'Blog', href: '/blog' },
   { label: 'About', href: '/about' },
   { label: 'My Order', href: '/tracker' },
@@ -161,9 +162,9 @@ export const blogPage = {
  */
 export const aboutPage = {
   hero: {
-    eyebrow: 'The studio / Surulere / Est. 2019',
-    headline: ['Paper, folded', 'in Surulere'],
-    emphasisWord: 'Surulere',
+    eyebrow: 'The studio / Okota / Est. 2019',
+    headline: ['Paper, folded', 'in Okota'],
+    emphasisWord: 'Okota',
     subline:
       'One room, two presses and a table of counting paper. Everything on this site is folded, pressed, counted and banded by the people who answer your messages.',
     artCaption: 'One crane, folded in the studio',
@@ -176,13 +177,13 @@ export const aboutPage = {
     stations: [
       {
         index: '01',
-        title: 'The room on Glover Road',
-        body: 'Everything sold here leaves from one address: No. 14, Glover Road, Surulere, Lagos. Six shelves, two presses and a cutting table — the folding, the pressing and the counting happen in the same room, at the same table, usually on the same day.',
+        title: 'The room on Ago Palace Way',
+        body: 'Everything sold here leaves from one address: Victory Estate, Ago Palace Way, Okota, Lagos. Six shelves, two presses and a cutting table — the folding, the pressing and the counting happen in the same room, at the same table, usually on the same day.',
       },
       {
         index: '02',
         title: 'Folding since 2019',
-        body: 'The studio has folded paper for money since 2019. Cranes, boxes, plates and party packs have gone out of the same Surulere room since then — what changed is the number of shelves, not the method.',
+        body: 'The studio has folded paper for money since 2019. Cranes, boxes, plates and party packs have gone out of the same Okota room since then — what changed is the number of shelves, not the method.',
       },
       {
         index: '03',
@@ -205,7 +206,7 @@ export const aboutPage = {
     card: {
       label: 'Ask the studio',
       title: 'A person who folds the paper answers.',
-      body: 'Messages go to the studio in Surulere, not to a queue. Send a guest count, a colour or a photograph and you will hear back the same day.',
+      body: 'Messages go to the studio in Okota, not to a queue. Send a guest count, a colour or a photograph and you will hear back the same day.',
       cta: 'Message the studio',
     },
   },
@@ -215,7 +216,7 @@ export const aboutPage = {
     secondaryLabel: 'Message the studio',
   },
   metaDescription:
-    'The Cra7ty Hub studio: one room on Glover Road in Surulere, Lagos, folding paper since 2019. How the orders work, how bulk works, and how to reach the people who fold it.',
+    'The Cra7ty Hub studio: one room on Ago Palace Way in Okota, Lagos, folding paper since 2019. How the orders work, how bulk works, and how to reach the people who fold it.',
 } as const;
 
 /** Three written steps beside the scroll-fold sequence. */
@@ -227,7 +228,7 @@ export const processSteps = [
   },
   {
     index: '02',
-    title: 'We fold it in Surulere',
+    title: 'We fold it in Okota',
     body: 'Three to five working days for a two-hundred guest order. Every crease is made by hand, which is exactly why bulk means we start earlier rather than fold faster.',
   },
   {
@@ -310,6 +311,7 @@ export const footer = {
         { label: 'About the folds', href: '/#process' },
         { label: 'Why paper', href: '/#why' },
         { label: 'Custom work', href: '/#bulk' },
+        { label: 'Workshops', href: '/workshops' },
         { label: 'Blog', href: '/blog' },
         { label: 'Contact', href: '/#footer-contact' },
       ],
