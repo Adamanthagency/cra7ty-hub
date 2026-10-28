@@ -65,6 +65,9 @@ export interface SiteContent {
     primaryCta: { label: string; href: string };
     secondaryCta: { label: string; href: string };
     stats: { value: string; label: string }[];
+    /** admin-managed hero images (content list home.hero.slideshow, max 10);
+     *  empty = the single art-image, or the procedural CraneHero art */
+    slideshow: { src: string; caption: string }[];
     /** chosen in the admin (content key home.hero.art-image); empty = the
      *  procedural CraneHero art */
     artImage: string;
@@ -187,6 +190,7 @@ export const staticSiteContent: SiteContent = {
     primaryCta: { ...staticHero.primaryCta },
     secondaryCta: { ...staticHero.secondaryCta },
     stats: staticHero.stats.map((stat) => ({ ...stat })),
+    slideshow: [],
     artImage: '',
   },
   sections: {

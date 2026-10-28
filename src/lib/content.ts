@@ -142,6 +142,19 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
     label: F(item, 'label'),
   })) ?? s.hero.stats;
 
+  // Hero slideshow: the admin's images, in the admin's order. A slide with
+  // no image is dropped (a dead media row must never blank the hero) and
+  // the ten-slide cap is held here as well, so the render path can never
+  // see more than the editor allows.
+  const heroSlideshow =
+    L('home.hero.slideshow')
+      ?.map((item) => ({
+        src: String(item.fields.image ?? '').trim(),
+        caption: F(item, 'caption').trim(),
+      }))
+      .filter((slide) => slide.src !== '')
+      .slice(0, 10) ?? s.hero.slideshow;
+
   const sortOptions = L('shop.shelf.sort-options')?.map((item) => ({
     id: SORT_ID_BY_ROW[item.id] ?? ('featured' as const),
     label: F(item, 'label'),
@@ -259,6 +272,7 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
         href: V('home.hero.secondary-cta.href', s.hero.secondaryCta.href),
       },
       stats: heroStats,
+      slideshow: heroSlideshow,
       artImage: V('home.hero.art-image', ''),
     },
     sections: {

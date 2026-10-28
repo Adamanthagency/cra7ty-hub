@@ -7,6 +7,7 @@ import { Button } from '@/components/primitives/Button';
 import { Marquee } from '@/components/primitives/Marquee';
 import { MaskedLines } from '@/components/primitives/Reveal';
 import { CraneHero } from '@/components/three/CraneHero';
+import { HeroSlideshow } from '@/components/HeroSlideshow';
 import { SafeImg } from '@/components/primitives/SafeImg';
 import { ArrowRight } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
@@ -70,6 +71,32 @@ export function Hero({ total }: { total?: number }) {
   const [deadArt, setDeadArt] = useState<string | null>(null);
   const showPhoto = artImage !== '' && deadArt !== artImage;
 
+  // Admin-managed hero slideshow (content list `home.hero.slideshow`,
+  // max 10): the admin's images in the admin's own order, uploaded and
+  // sequenced from the Hero section editor. Priority is slideshow →
+  // single art-image → procedural crane, so an empty list keeps the art
+  // exactly as it is today. A URL that dies after SafeImg's retries drops
+  // out of the rotation; if every slide dies the hero falls back the same
+  // way it falls back from a dead single photo.
+  const slideshowOverride = useEditList('home.hero.slideshow');
+  const [deadSlides, setDeadSlides] = useState<string[]>([]);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const slides = (
+    slideshowOverride
+      ? slideshowOverride.map((item) => ({
+          src: String(item.fields.image ?? '').trim(),
+          caption: String(item.fields.caption ?? '').trim(),
+        }))
+      : hero.slideshow
+  )
+    .filter((slide) => slide.src !== '' && !deadSlides.includes(slide.src))
+    .slice(0, 10);
+  const showSlideshow = slides.length > 0;
+  const dropSlide = (src: string) =>
+    setDeadSlides((current) =>
+      current.includes(src) ? current : [...current, src],
+    );
+
   // Layout variant (admin chips → page_sections.variant): 'split' is the
   // shipped 7/5 grid; 'stacked' sets the headline full-width with the art
   // below it. The else-path is today's markup, untouched.
@@ -131,7 +158,13 @@ export function Hero({ total }: { total?: number }) {
                     : 'relative h-[17rem] sm:h-[21rem] lg:h-[30rem]'
                 }
               >
-                {showPhoto ? (
+                {showSlideshow ? (
+                  <HeroSlideshow
+                    slides={slides}
+                    onDead={dropSlide}
+                    onIndexChange={setSlideIndex}
+                  />
+                ) : showPhoto ? (
                   <SafeImg
                     src={artImage}
                     alt=""
@@ -143,16 +176,30 @@ export function Hero({ total }: { total?: number }) {
                 )}
               </div>
               <p className="mono-label-xs mt-1 flex items-center justify-between gap-3 border-t border-ink-12 pt-3 text-ink-40">
-                <span>
-                  <Editable k="home.hero.art-caption-left">
-                    Hover, then scroll
-                  </Editable>
-                </span>
-                <span>
-                  <Editable k="home.hero.art-caption-right">
-                    Procedural · no files
-                  </Editable>
-                </span>
+                {showSlideshow ? (
+                  <>
+                    <span className="tabular-nums">
+                      {String(slideIndex + 1).padStart(2, '0')} /{' '}
+                      {String(slides.length).padStart(2, '0')}
+                    </span>
+                    <span className="truncate text-right">
+                      {slides[slideIndex]?.caption ?? ''}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      <Editable k="home.hero.art-caption-left">
+                        Hover, then scroll
+                      </Editable>
+                    </span>
+                    <span>
+                      <Editable k="home.hero.art-caption-right">
+                        Procedural · no files
+                      </Editable>
+                    </span>
+                  </>
+                )}
               </p>
             </div>
           </div>
