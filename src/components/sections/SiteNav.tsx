@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSiteContent } from '@/components/site-content-provider';
 import { useOrder } from '@/lib/order-store';
-import { CraneMark } from '@/components/primitives/Icons';
 import { pad } from '@/lib/format';
 import { Editable } from '@/components/edit/Editable';
 import { EditableSection } from '@/components/edit/EditableSection';
@@ -93,13 +93,17 @@ export function SiteNav() {
         <div className="flex h-[62px] items-center justify-between gap-6">
           <Link
             href="/"
-            className="group flex items-baseline gap-2"
+            className="group flex items-center"
             aria-label={`${site.name}, home`}
           >
-            <CraneMark size={18} className="translate-y-[1px] text-vermilion" />
-            <span className="font-display text-[1.4rem] leading-none tracking-[-0.02em]">
-              {site.name}
-            </span>
+            <Image
+              src="/logo.png"
+              alt=""
+              width={798}
+              height={278}
+              priority
+              className="h-9 w-auto"
+            />
           </Link>
 
           <nav aria-label="Primary" className="hidden md:block">

@@ -1,10 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useSiteContent } from '@/components/site-content-provider';
 import { whatsappLink } from '@/lib/whatsapp';
 import { Container } from '@/components/primitives/Container';
-import { CraneMark } from '@/components/primitives/Icons';
 import { Editable } from '@/components/edit/Editable';
 import { EditableSection } from '@/components/edit/EditableSection';
 import { useEditList } from '@/lib/edit/use-edit';
@@ -165,12 +165,15 @@ export function SiteFooter() {
         </div>
       </div>
 
-      {/* the oversized wordmark, cropped by the page edge */}
+      {/* the oversized logo, reversed for the ink ground */}
       <div className="mt-14 w-full border-t border-paper-12 px-gutter pt-8 md:mt-20">
-        <p className="flex items-center gap-3 whitespace-nowrap font-display text-[clamp(3.5rem,17vw,15rem)] leading-[0.8] tracking-[-0.035em] text-paper">
-          <CraneMark size={40} className="hidden shrink-0 text-vermilion sm:block" />
-          <span className="-ml-[0.06em]">{site.name}</span>
-        </p>
+        <Image
+          src="/logo-light.png"
+          alt={site.name}
+          width={798}
+          height={278}
+          className="h-[clamp(4rem,13vw,10rem)] w-auto"
+        />
       </div>
 
       <Container className="pb-8 pt-6">
