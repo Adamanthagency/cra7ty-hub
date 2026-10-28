@@ -26,7 +26,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-/** Mirrors the tags added in selectRows() — the only purgeable names. */
+/**
+ * Mirrors the tags the fetch caches actually carry — the only
+ * purgeable names. 'db:events' joins the list from Tier 6: the
+ * admin's event save sends it, and an unlisted tag made this endpoint
+ * answer 400 ("Unknown tag") on every event publish even though the
+ * shared secret matched.
+ */
 const KNOWN_TAGS = new Set([
   'db',
   'db:content_values',
@@ -36,6 +42,7 @@ const KNOWN_TAGS = new Set([
   'db:categories',
   'db:products',
   'db:blog_posts',
+  'db:events',
 ]);
 
 const MAX_ITEMS = 16;
