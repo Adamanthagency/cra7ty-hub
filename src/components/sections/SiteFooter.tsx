@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useSiteContent } from '@/components/site-content-provider';
 import { whatsappLink } from '@/lib/whatsapp';
@@ -165,15 +164,11 @@ export function SiteFooter() {
         </div>
       </div>
 
-      {/* the oversized logo, reversed for the ink ground */}
+      {/* the brand line — plain text, no logo image */}
       <div className="mt-14 w-full border-t border-paper-12 px-gutter pt-8 md:mt-20">
-        <Image
-          src="/logo-light.png"
-          alt={site.name}
-          width={798}
-          height={278}
-          className="h-[clamp(4rem,13vw,10rem)] w-auto"
-        />
+        <p className="font-display text-2xl text-paper md:text-3xl">
+          {site.name}
+        </p>
       </div>
 
       <Container className="pb-8 pt-6">
