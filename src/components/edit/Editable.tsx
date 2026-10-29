@@ -37,16 +37,23 @@ import { useContentField } from '@/components/site-content-provider';
  * rendering (headline lines, which must re-split on the emphasis word
  * without replaying MaskedLines). Editable then only registers the key,
  * handles click-to-select and the admin highlight.
+ *
+ * `className`: extra classes for the edit-mode wrapper only (e.g. `block`
+ * when the content is a block of layout rather than a run of text), so the
+ * hover underline and selection outline frame the whole region. Dropped
+ * with the rest of the edit markup on a normal visit.
  */
 export function Editable({
   k,
   tokens,
   managed,
+  className,
   children,
 }: {
   k: string;
   tokens?: TokenValues;
   managed?: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   const editing = useIsEditMode();
@@ -66,7 +73,7 @@ export function Editable({
   if (!editing) return <>{base}</>;
 
   return (
-    <EditableClient k={k} tokens={tokens} managed={managed}>
+    <EditableClient k={k} tokens={tokens} managed={managed} className={className}>
       {base}
     </EditableClient>
   );

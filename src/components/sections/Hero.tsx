@@ -151,30 +151,39 @@ export function Hero({ total }: { total?: number }) {
 
           <div className={stacked ? 'col-span-12' : 'col-span-12 lg:col-span-5'}>
             <div className="relative">
-              <div
-                className={
-                  stacked
-                    ? 'relative h-[17rem] sm:h-[21rem] lg:h-[26rem]'
-                    : 'relative h-[17rem] sm:h-[21rem] lg:h-[30rem]'
-                }
-              >
-                {showSlideshow ? (
-                  <HeroSlideshow
-                    slides={slides}
-                    onDead={dropSlide}
-                    onIndexChange={setSlideIndex}
-                  />
-                ) : showPhoto ? (
-                  <SafeImg
-                    src={artImage}
-                    alt=""
-                    onDead={() => setDeadArt(artImage)}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <CraneHero className="h-full w-full" />
-                )}
-              </div>
+              {/* The whole art region is ONE admin key: the hero slideshow
+                  list. Clicking it in the visual editor opens the same
+                  ListEditor the workbench shows — including when the list
+                  is empty and the procedural crane is what's on screen
+                  (that is exactly when the admin needs to add slides).
+                  `block` keeps the edit-mode hover/outline around the whole
+                  box instead of a degenerate inline line. */}
+              <Editable k="home.hero.slideshow" managed className="block">
+                <div
+                  className={
+                    stacked
+                      ? 'relative h-[17rem] sm:h-[21rem] lg:h-[26rem]'
+                      : 'relative h-[17rem] sm:h-[21rem] lg:h-[30rem]'
+                  }
+                >
+                  {showSlideshow ? (
+                    <HeroSlideshow
+                      slides={slides}
+                      onDead={dropSlide}
+                      onIndexChange={setSlideIndex}
+                    />
+                  ) : showPhoto ? (
+                    <SafeImg
+                      src={artImage}
+                      alt=""
+                      onDead={() => setDeadArt(artImage)}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <CraneHero className="h-full w-full" />
+                  )}
+                </div>
+              </Editable>
               <p className="mono-label-xs mt-1 flex items-center justify-between gap-3 border-t border-ink-12 pt-3 text-ink-40">
                 {showSlideshow ? (
                   <>

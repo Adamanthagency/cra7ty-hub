@@ -28,11 +28,14 @@ export function EditableClient({
   k,
   tokens,
   managed,
+  className,
   children,
 }: {
   k: string;
   tokens?: TokenValues;
   managed?: boolean;
+  /** layout classes for the wrapper (block-sized regions) — edit mode only */
+  className?: string;
   children: ReactNode;
 }) {
   const override = useEditField(k);
@@ -62,7 +65,9 @@ export function EditableClient({
         sendSelectField(k, event.currentTarget);
       }}
       className={
-        selected ? 'cra7ty-editable cra7ty-editable--selected' : 'cra7ty-editable'
+        selected
+          ? `cra7ty-editable cra7ty-editable--selected${className ? ` ${className}` : ''}`
+          : `cra7ty-editable${className ? ` ${className}` : ''}`
       }
     >
       {content}
