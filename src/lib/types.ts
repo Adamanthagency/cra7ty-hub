@@ -13,13 +13,12 @@ export type ModelKey =
   | 'cup'
   | 'sheet';
 
-export type CategoryId =
-  | 'origami'
-  | 'table'
-  | 'party'
-  | 'gift'
-  | 'bulk'
-  | 'paper';
+/**
+ * The shelf a product files under: the id from the admin's Categories
+ * manager. Deliberately `string` — the admin can add a shelf at any time
+ * (its id is a slug), so this must not narrow to a fixed set of values.
+ */
+export type CategoryId = string;
 
 /** Which axis a product variant belongs to — same three as the admin. */
 export type VariantType = 'colour' | 'size' | 'material';
