@@ -127,9 +127,20 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
   /* ------------------------------ lists ------------------------------- */
 
   const navLinks = L('global.navigation.links')?.map((item) => ({
+    id: item.id,
     label: F(item, 'label'),
     href: F(item, 'href'),
-  })) ?? s.navLinks;
+  })) ?? s.navLinks.map((link) => ({ id: link.id, label: link.label, href: link.href }));
+
+  /**
+   * The Order dropdown's contents. A nav item whose id is the submenu
+   * group id (SiteNav's ORDER_GROUP_ID) renders as a dropdown holding
+   * this list; an empty list collapses Order back to a plain link.
+   */
+  const navOrderMenu = L('global.navigation.order-links')?.map((item) => ({
+    label: F(item, 'label'),
+    href: F(item, 'href'),
+  })) ?? s.navOrderMenu.map((item) => ({ label: item.label, href: item.href }));
 
   const marqueeWords = L('home.hero.marquee.words')?.map((item) => F(item, 'word'))
     ?? s.marqueeWords;
@@ -253,6 +264,7 @@ export const getContentSnapshot = cache(async (): Promise<SiteContent> => {
   return {
     site,
     navLinks,
+    navOrderMenu,
     marqueeWords,
     marqueeHome,
     hero: {

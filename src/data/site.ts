@@ -29,16 +29,33 @@ export const site = {
 /**
  * Sticky nav. Real routes, with `/#…` values for the anchors that still live
  * on the home page, so the links work from every page.
+ *
+ * `id` is stable — it is the admin's `content_list_items.item_id`, and the
+ * Order entry's id is what SiteNav hangs the submenu off. Events and
+ * Courses are reserved slots: the pages exist as coming-soon shells until
+ * those features are built.
  */
 export const navLinks = [
-  { label: 'Shop', href: '/shop' },
-  { label: 'Origami', href: '/shop?category=origami' },
-  { label: 'Party Packs', href: '/shop?category=party' },
-  { label: 'Bulk Orders', href: '/#bulk' },
-  { label: 'Workshops', href: '/workshops' },
-  { label: 'Blog', href: '/blog' },
-  { label: 'About', href: '/about' },
+  { id: 'nav-home', label: 'Home', href: '/' },
+  { id: 'nav-shop', label: 'Shop', href: '/shop' },
+  // Order renders as the dropdown group when `orderMenu` is non-empty;
+  // this link is its fallback destination if the submenu list is ever empty.
+  { id: 'nav-order', label: 'Order', href: '/tracker' },
+  { id: 'nav-events', label: 'Events', href: '/events' },
+  { id: 'nav-workshops', label: 'Workshops', href: '/workshops' },
+  { id: 'nav-courses', label: 'Courses', href: '/courses' },
+  { id: 'nav-blog', label: 'Blog', href: '/blog' },
+  { id: 'nav-about', label: 'About', href: '/about' },
+] as const;
+
+/**
+ * What sits under the Order dropdown. Also the fallback for the live
+ * `global.navigation.order-links` list, so a missing database still
+ * renders the submenu instead of a bare link.
+ */
+export const orderMenu = [
   { label: 'My Order', href: '/tracker' },
+  { label: 'Bulk Order', href: '/#bulk' },
 ] as const;
 
 /** Words for the mono marquee strip under the hero. */

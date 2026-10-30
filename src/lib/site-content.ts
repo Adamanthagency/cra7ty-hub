@@ -6,6 +6,7 @@ import {
   hero as staticHero,
   marqueeWords as staticMarqueeWords,
   navLinks as staticNavLinks,
+  orderMenu as staticOrderMenu,
   processSteps as staticProcessSteps,
   sections as staticSections,
   shopPage as staticShopPage,
@@ -52,7 +53,10 @@ export interface SiteContent {
     foundedYear: number;
     freeDeliveryOver: number;
   };
-  navLinks: { label: string; href: string }[];
+  /** `id` is the admin's item_id; `nav-order` carries navOrderMenu as a dropdown. */
+  navLinks: { id: string; label: string; href: string }[];
+  /** contents of the Order dropdown; empty = Order renders as a plain link */
+  navOrderMenu: { label: string; href: string }[];
   /** words under the hero */
   marqueeWords: string[];
   /** the mid-page strip on Home (page.tsx passed these as literals before Stage 3) */
@@ -179,7 +183,15 @@ export function interpolateTotal(value: string, total: number | undefined): stri
 /** The pre-Stage-3 site, assembled into the snapshot shape. */
 export const staticSiteContent: SiteContent = {
   site: { ...staticSite },
-  navLinks: staticNavLinks.map((link) => ({ label: link.label, href: link.href })),
+  navLinks: staticNavLinks.map((link) => ({
+    id: link.id,
+    label: link.label,
+    href: link.href,
+  })),
+  navOrderMenu: staticOrderMenu.map((item) => ({
+    label: item.label,
+    href: item.href,
+  })),
   marqueeWords: [...staticMarqueeWords],
   marqueeHome: ['One studio', 'Eleven products', 'No payment gateway', 'Counted by hand'],
   hero: {
