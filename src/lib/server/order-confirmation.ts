@@ -91,8 +91,12 @@ async function loadOrder(orderId: string): Promise<{
 /**
  * Render the confirmation message. Pure — the same function feeds the
  * email and (via buildDownloadViews) whatever links it must carry.
+ *
+ * Exported (not private) so the delivery test can assert on the REAL
+ * body — which links, how many, for which files — instead of only on a
+ * send count. It performs no I/O, so importing it costs nothing.
  */
-function renderEmail(
+export function renderEmail(
   order: OrderRow,
   items: ItemRow[],
   downloads: DownloadView[],
@@ -106,7 +110,9 @@ function renderEmail(
   );
 
   const trackerUrl = `${siteUrl}/tracker`;
-  const expires = downloads.find((d) => d.state === 'valid')?.expiresAt;
+
+  /** Links are paths on this storefront; the email must absolutize them. */
+  const absolute = (path: string): string => `${siteUrl}${path}`;
 
   // ---- plain text ----------------------------------------------------
   const textLines = [
@@ -125,21 +131,23 @@ function renderEmail(
   if (downloads.length > 0) {
     textLines.push('Your downloads:', '');
     for (const download of downloads) {
-      if (download.state === 'valid' && download.url) {
-        textLines.push(`  ${download.name} — ${download.url}`);
+      // The FILENAME leads, not the product name: one product can ship
+      // several files now (Tier 7), and three identical names in a
+      // column would not tell the buyer which is which.
+      if (download.state === 'available' && download.url) {
+        textLines.push(`  ${download.filename} — ${absolute(download.url)}`);
+      } else if (download.state === 'downloaded') {
+        textLines.push(`  ${download.filename} — already downloaded`);
       } else {
-        textLines.push(`  ${download.name} — available from your order page`);
+        textLines.push(`  ${download.filename} — available from your order page`);
       }
     }
     textLines.push('');
-    if (expires) {
-      textLines.push(
-        `Download links expire ${when(expires)}. You can get a fresh link any time from ${trackerUrl}.`,
-        '',
-      );
-    } else {
-      textLines.push(`Get a fresh link any time from ${trackerUrl}.`, '');
-    }
+    textLines.push(
+      'Each file can be downloaded ONCE — save them as soon as you open them.',
+      `You can always see your order here: ${trackerUrl}`,
+      '',
+    );
   }
 
   textLines.push(
@@ -173,20 +181,19 @@ function renderEmail(
         <p style="margin:0 0 12px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#7a756c;">Your downloads</p>
         ${downloads
           .map((download) => {
-            if (download.state === 'valid' && download.url) {
+            if (download.state === 'available' && download.url) {
               return `<p style="margin:0 0 10px;">
                 <strong style="color:#1c1a17;">${escapeHtml(download.name)}</strong><br/>
-                <a href="${escapeHtml(download.url)}" style="color:#c2410c;">Download ${escapeHtml(download.filename)}</a>
+                <a href="${escapeHtml(absolute(download.url))}" style="color:#c2410c;">Download ${escapeHtml(download.filename)}</a>
               </p>`;
+            }
+            if (download.state === 'downloaded') {
+              return `<p style="margin:0 0 10px;color:#7a756c;">${escapeHtml(download.name)} — ${escapeHtml(download.filename)} has already been downloaded.</p>`;
             }
             return `<p style="margin:0 0 10px;color:#7a756c;">${escapeHtml(download.name)} — get it from your order page.</p>`;
           })
           .join('')}
-        ${
-          expires
-            ? `<p style="margin:12px 0 0;font-size:13px;color:#7a756c;">Links expire ${escapeHtml(when(expires))}. Need a fresh one? Use the My Order page and we will send it again.</p>`
-            : ''
-        }
+        <p style="margin:12px 0 0;font-size:13px;color:#7a756c;">Each file can be downloaded once — save them as soon as you open them. Your order page (${escapeHtml(trackerUrl)}) always lists what you bought.</p>
       </div>`;
 
   const html = `
@@ -275,8 +282,10 @@ export async function deliverOrderConfirmation(
     // Record the send against every grant that actually carried a live
     // link, so the My Order page can tell "emailed" from "never sent".
     for (const view of downloads) {
-      if (view.state !== 'valid') continue;
-      const grant = grants.find((g) => g.productId === view.productId);
+      if (view.state !== 'available') continue;
+      // Matched on the GRANT id: productId is no longer unique — one
+      // product can carry ten files and each grant needs its own mark.
+      const grant = grants.find((g) => g.id === view.id);
       if (grant) await markEmailSent(grant.id);
     }
 

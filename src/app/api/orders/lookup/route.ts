@@ -68,8 +68,8 @@ interface ItemRow {
 
 /**
  * The email/phone comparison itself now lives in
- * src/lib/server/order-identity.ts, shared with the resend endpoint so
- * the two can never disagree about what counts as a match.
+ * src/lib/server/order-identity.ts, so a second order endpoint can
+ * never disagree with this one about what counts as a match.
  */
 
 /**
@@ -164,8 +164,9 @@ export async function POST(request: NextRequest) {
 
   // Digital downloads ride along ONLY after the identity match above —
   // a miss never reaches this line, so a wrong email cannot learn
-  // whether the order has files. Each URL is minted fresh here (they
-  // expire, so nothing is cached or stored for the browser).
+  // whether the order has files. Each view is built fresh here: a file
+  // already downloaded answers `downloaded` (locked), one never used
+  // answers `available` with the one-time download path.
   const grants = await loadGrants(row.id);
   const downloads = grants.length > 0 ? await buildDownloadViews(grants) : [];
 

@@ -48,6 +48,17 @@ export async function rpc<T = unknown>(
     method: 'POST',
     headers,
     body: JSON.stringify(args),
+    // MUST be no-store. PostgREST answers RPC calls WITHOUT a
+    // cache-control header, and Next 14's data cache then treats the
+    // response as immutable (revalidate: 31536000) — it stored the
+    // first `check_rate_limit` answer in .next/cache/fetch-cache and
+    // replayed it for a year, freezing the limiter on its first
+    // decision (observed locally: a stale `date` header 28 minutes
+    // old, surviving a restart). A mutable counter can never be served
+    // from a cache; the plain REST calls below are covered by
+    // PostgREST's own `cache-control: no-cache`, but an RPC must say so
+    // itself.
+    cache: 'no-store',
     signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
   });
 

@@ -157,15 +157,16 @@ function SuccessClient() {
               </p>
             )}
 
-            {/* Tier 5: instant access. Same signed links the confirmation
-                email carries — the success page is the fast path, the
-                email the backup for when this tab is gone. */}
+            {/* Tier 5: instant access. The same one-time links the
+                confirmation email carries — the success page is the fast
+                path, the email the backup for when this tab is gone.
+                (No identity to replay here: with resend gone, the only
+                credential is the link itself.) */}
             {downloads.length > 0 && orderNumber && (
               <div className="mt-7 border-t border-ink-24 pt-6">
                 <DownloadBlock
                   downloads={downloads}
                   orderNumber={orderNumber}
-                  identity={{}}
                 />
               </div>
             )}

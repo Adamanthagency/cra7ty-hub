@@ -1,95 +1,61 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { Editable } from '@/components/edit/Editable';
 import { useSiteContent } from '@/components/site-content-provider';
 import { whatsappLink } from '@/lib/whatsapp';
 
 /**
- * The digital-download block (Tier 5) — one component, two homes:
+ * The digital-download block (Tiers 5 + 8) — one component, two homes:
  * the checkout success page and the My Order (/tracker) result view.
+ * Those two moments, plus the confirmation email, are the only three
+ * places a file is ever handed over.
  *
- * THREE STATES, and the copy for each is seeded in the admin so it is
- * editable like everything else:
- *   valid    → a Download button plus when the link expires
- *   expired  → "this link has expired" + a Resend action. The resend
- *              asks the server to mint a fresh URL AND email it to the
- *              address on the order; the button confirms success without
- *              revealing anything about the order (the response body is
- *              deliberately empty).
- *   missing  → the file itself is gone (admin deleted it). No dead link
- *              and no error — a WhatsApp path to the studio instead.
+ * THREE STATES (copy seeded in the admin so it is editable like
+ * everything else):
+ *   available   → a Download button and a note that this is the one
+ *                 time it works.
+ *   downloaded  → the file was used: no button, no resend, nothing to
+ *                 click but the two recovery paths the client asked
+ *                 for — buy it again, or message the studio.
+ *   missing     → the file itself is gone (admin deleted it). No dead
+ *                 link and no error — a WhatsApp path to the studio.
  *
- * Resend states: idle → sending → sent | rate-limited | error. The
- * buyer's identity was already proven to reach this view, so the resend
- * call re-sends those same credentials; it never asks for them again.
+ * THE RESEND FLOW IS GONE ON PURPOSE (Tier 8). It used to be reachable
+ * from this component; with one download per file there is nothing to
+ * resend, and offering a button that re-issues a link would contradict
+ * the rule the client confirmed. `identity` went with it: it existed
+ * only to authenticate the resend call.
  */
 
 export interface DownloadItem {
+  /**
+   * The grant row's id — one per FILE. Two files on one product share
+   * productId and name, so this is what the list keys on.
+   */
+  id: string;
   productId: string;
   name: string;
   filename: string;
-  state: 'valid' | 'expired' | 'missing';
+  state: 'available' | 'downloaded' | 'missing';
   url?: string;
-  expiresAt: string;
+  downloadedAt?: string;
 }
-
-type ResendState = 'idle' | 'sending' | 'sent' | 'rate-limited' | 'error';
-
-const when = (iso: string): string =>
-  new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 
 export function DownloadBlock({
   downloads,
   orderNumber,
-  identity,
 }: {
   downloads: DownloadItem[];
   orderNumber: string;
-  /** The already-proven identity, replayed for the resend call. */
-  identity: { email?: string; phone?: string };
 }) {
-  const [resend, setResend] = useState<ResendState>('idle');
   const { site } = useSiteContent();
 
   if (downloads.length === 0) return null;
 
+  const hasDownloaded = downloads.some((item) => item.state === 'downloaded');
   const hasMissing = downloads.some((item) => item.state === 'missing');
-  const allUsable = downloads.some((item) => item.state !== 'missing');
-  // The success page arrives with only a payment reference — no email or
-  // phone to prove identity with — so a resend there could never
-  // authenticate. Rather than render a button that is guaranteed to
-  // fail, point at the My Order page, where the buyer types their
-  // identity once and the resend works.
-  const canResend = Boolean(identity.email || identity.phone);
-
-  const sendAgain = async () => {
-    if (resend === 'sending') return;
-    setResend('sending');
-    try {
-      const response = await fetch('/api/orders/resend-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderNumber,
-          ...(identity.email ? { email: identity.email } : {}),
-          ...(identity.phone ? { phone: identity.phone } : {}),
-        }),
-      });
-      if (response.status === 200) setResend('sent');
-      else if (response.status === 429) setResend('rate-limited');
-      else setResend('error');
-    } catch {
-      setResend('error');
-    }
-  };
+  const allMissing = downloads.every((item) => item.state === 'missing');
 
   return (
     <div className="space-y-4">
@@ -100,7 +66,7 @@ export function DownloadBlock({
       <ul className="space-y-3">
         {downloads.map((item) => (
           <li
-            key={item.productId}
+            key={item.id}
             className="border border-ink-24 bg-kraft/40 px-4 py-4"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
@@ -111,7 +77,7 @@ export function DownloadBlock({
                 </p>
               </div>
 
-              {item.state === 'valid' && item.url && (
+              {item.state === 'available' && item.url && (
                 <a
                   href={item.url}
                   className="btn btn-primary shrink-0"
@@ -126,19 +92,20 @@ export function DownloadBlock({
               )}
             </div>
 
-            {item.state === 'valid' && (
+            {item.state === 'available' && (
               <p className="mono-label-xs mt-3 text-ink-40">
-                <Editable k="tracker.downloads.valid-until-label">
-                  Link valid until
-                </Editable>{' '}
-                {when(item.expiresAt)}
+                <Editable k="tracker.downloads.once-note">
+                  Each file downloads once — save it before you close
+                  this page.
+                </Editable>
               </p>
             )}
 
-            {item.state === 'expired' && (
+            {item.state === 'downloaded' && (
               <p className="mono-label-xs mt-3 text-ink-55">
-                <Editable k="tracker.downloads.expired-note">
-                  This link has expired — ask for a fresh one below.
+                <Editable k="tracker.downloads.locked-note">
+                  Already downloaded — this file can only be downloaded
+                  once, so it is no longer available here.
                 </Editable>
               </p>
             )}
@@ -155,71 +122,47 @@ export function DownloadBlock({
         ))}
       </ul>
 
-      {/* Expired links get a resend action — or, without identity to
-          prove, a pointer to the page where that proof happens. A
-          fully-missing order gets the studio instead (resending would
-          produce nothing to send). */}
-      {!canResend && downloads.some((item) => item.state === 'expired') && (
-        <p className="mono-label-xs text-ink-55">
-          <Editable k="tracker.downloads.expired-no-identity">
-            This link has expired — open your order page to get a fresh
-            one.
-          </Editable>{' '}
-          <Link href="/tracker" className="underline underline-offset-2 hover:text-ink">
-            <Editable k="tracker.downloads.go-to-order-page">
-              My Order
+      {/* A used file: the two recovery paths the client confirmed —
+          repurchase, or talk to the studio. One action row for the
+          order, not one per file. */}
+      {hasDownloaded && (
+        <div className="space-y-3 border-t border-ink-24 pt-4">
+          <p className="text-sm text-ink-70">
+            <Editable k="tracker.downloads.recover-note">
+              Downloaded files cannot be downloaded again. If you need
+              them back, buy them again — or message the studio and we
+              will help.
             </Editable>
-          </Link>
-        </p>
-      )}
-      {canResend && downloads.some((item) => item.state === 'expired') && (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void sendAgain()}
-            disabled={resend === 'sending' || resend === 'sent'}
-            className="btn btn-secondary disabled:opacity-50"
-          >
-            <span>
-              {resend === 'sending' ? (
-                <Editable k="tracker.downloads.sending-label">Sending…</Editable>
-              ) : resend === 'sent' ? (
-                <Editable k="tracker.downloads.sent-label">Sent — check your email</Editable>
-              ) : (
-                <Editable k="tracker.downloads.resend-label">
-                  Resend download link
-                </Editable>
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href={whatsappLink(
+                `Hello Cra7ty Hub, I need help with a download for order ${orderNumber}.`,
+                site.whatsappNumber,
               )}
-            </span>
-          </button>
-
-          {resend === 'sent' && (
-            <p className="mono-label-xs text-ink-55" role="status">
-              <Editable k="tracker.downloads.sent-note">
-                A fresh link is on its way to the email address on your
-                order.
-              </Editable>
-            </p>
-          )}
-          {resend === 'rate-limited' && (
-            <p className="mono-label-xs text-vermilion" role="alert">
-              <Editable k="tracker.downloads.rate-limited-note">
-                Too many requests — wait a minute and try again.
-              </Editable>
-            </p>
-          )}
-          {resend === 'error' && (
-            <p className="mono-label-xs text-vermilion" role="alert">
-              <Editable k="tracker.downloads.error-note">
-                Could not send the email — please try again.
-              </Editable>
-            </p>
-          )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary inline-flex"
+            >
+              <span>
+                <Editable k="tracker.statuses.help-label">
+                  Message the studio
+                </Editable>
+              </span>
+            </a>
+            <Link href="/shop" className="btn btn-secondary inline-flex">
+              <span>
+                <Editable k="tracker.downloads.buy-again-label">
+                  Buy it again
+                </Editable>
+              </span>
+            </Link>
+          </div>
         </div>
       )}
 
-      {/* No usable file anywhere: WhatsApp is the only real path. */}
-      {!allUsable && hasMissing && (
+      {/* Nothing usable anywhere: WhatsApp is the only real path. */}
+      {allMissing && hasMissing && (
         <a
           href={whatsappLink(
             `Hello Cra7ty Hub, I need help with the download for order ${orderNumber}.`,

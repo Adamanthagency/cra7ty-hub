@@ -1,12 +1,15 @@
 /**
- * Digital delivery: the grant ledger, signed download URLs and the
- * validity states the UI renders (Tier 5).
+ * Digital delivery: the grant ledger, the ONE-TIME download state and
+ * what the pages and the confirmation email render (Tiers 5, 7 and 8).
  *
  * WHAT IS STORED vs WHAT IS SIGNED:
  *   order_downloads holds the FILE REFERENCE (bucket-relative path) and
- *   when the current URL was minted. It never holds a URL — signed URLs
- *   expire, and a stored one would be a permanent credential sitting in
- *   a table. Every read mints a fresh URL from the path.
+ *   the one-time download state. It never holds a URL — a stored one
+ *   would be a permanent credential sitting in a table. Every read
+ *   mints a fresh URL from the path... except that since Tier 8 the
+ *   browser is never handed a storage URL at all: links point at
+ *   /api/orders/download/<grantId>, which streams the bytes through
+ *   this server so completion can be observed (see that route).
  *
  * WHY THE GRANT SNAPSHOT ITS PATH: replacing a product's file must not
  * rewrite what an earlier buyer was sold (and must not break their
@@ -15,25 +18,50 @@
  * object they were sold. Deleting the object is the one case that does
  * break them — surfaced as `missing`, never as a dead link.
  *
- * EXPIRY: LINK_TTL_SECONDS = 72 h. Long enough that a Friday-night
- * purchase still works on Monday (48 h is not), short enough that a
- * leaked link ages out quickly — and irrelevant to real security,
- * because any holder can mint a fresh one through the rate-limited
- * resend path in a single click.
+ * SINGLE-USE (Tier 8 — the client's confirmed rule):
+ *   downloaded_at is written ONCE, by the download route, only after
+ *   the whole file finished streaming with no client abort. From then
+ *   the grant answers `downloaded` forever: no resend, no expiry, no
+ *   admin reopen. Each GRANT locks independently, and a grant is one
+ *   FILE — so a ten-file product has ten independent one-time locks.
+ *
+ *   The lock is written only on observed success and every failure
+ *   path releases the claim instead, so the design's error direction is
+ *   "a buyer who never received the file keeps access" — the case the
+ *   client cares about. The residual risk runs the other way: we can
+ *   see that every byte left this server, not that it reached the
+ *   buyer's disk.
  */
 
 import { rest } from '@/lib/server/supabase-server';
 
 export const DIGITAL_BUCKET = 'digital-files';
 
-/** Signed download links live for 72 hours. */
-export const LINK_TTL_SECONDS = 72 * 60 * 60;
-
 /** Server-side ceiling on one digital file (the bucket cannot hold it). */
 export const MAX_FILE_BYTES = 100 * 1024 * 1024;
 
-/** One state per grant — exactly what the UI branches on. */
-export type DownloadState = 'valid' | 'expired' | 'missing';
+/**
+ * How long a transfer claim stays live. A request that dies mid-stream
+ * (function killed, socket reset) cannot clean up after itself, so the
+ * lease has to age out on its own — otherwise one crash would lock a
+ * file that was never downloaded, which is precisely the failure this
+ * feature must not create.
+ */
+export const TRANSFER_LEASE_MS = 10 * 60 * 1000;
+
+/**
+ * Lifetime of the server-side signed URL that is fetched ONCE and
+ * streamed to the buyer. It never reaches a browser, so its only job is
+ * to outlive the transfer of one file.
+ */
+export const UPSTREAM_TTL_SECONDS = 300;
+
+/**
+ * One state per grant — exactly what the UI branches on. The old
+ * `valid | expired` axis is gone with the 72-hour window: a link that
+ * has not been used still works, and one that has is gone for good.
+ */
+export type DownloadState = 'available' | 'downloaded' | 'missing';
 
 export interface DownloadGrant {
   id: string;
@@ -42,20 +70,30 @@ export interface DownloadGrant {
   storagePath: string;
   filename: string;
   issuedAt: string;
-  linkExpiresAt: string | null;
+  /** Null until the file has actually been downloaded — the lock. */
+  downloadedAt: string | null;
   emailSentAt: string | null;
-  resendCount: number;
 }
 
 export interface DownloadView {
+  /**
+   * The GRANT ROW id — unique per file, not per product. One digital
+   * product can ship up to 10 files (Tier 7), so productId is no
+   * longer a key: this is what a list renders on and what the email
+   * bookkeeping matches back to the right grant.
+   */
+  id: string;
   productId: string;
   name: string;
   filename: string;
   state: DownloadState;
-  /** Present only when state === 'valid'. */
+  /**
+   * Present only when state === 'available'. A path, not absolute:
+   * pages render it as-is, the confirmation email prefixes siteUrl.
+   */
   url?: string;
-  /** ISO expiry of the URL just minted (state 'valid'), or of the lapsed one. */
-  expiresAt: string;
+  /** Present only when state === 'downloaded'. */
+  downloadedAt?: string;
 }
 
 interface GrantRow {
@@ -65,13 +103,13 @@ interface GrantRow {
   storage_path: string;
   filename: string;
   issued_at: string;
-  link_expires_at: string | null;
+  downloaded_at: string | null;
   email_sent_at: string | null;
-  resend_count: number;
 }
 
+/** link_expires_at and resend_count are RETIRED (Tier 8): not read. */
 const GRANT_COLUMNS =
-  'id,product_id,product_name,storage_path,filename,issued_at,link_expires_at,email_sent_at,resend_count';
+  'id,product_id,product_name,storage_path,filename,issued_at,downloaded_at,email_sent_at';
 
 function toGrant(row: GrantRow): DownloadGrant {
   return {
@@ -81,9 +119,8 @@ function toGrant(row: GrantRow): DownloadGrant {
     storagePath: row.storage_path,
     filename: row.filename,
     issuedAt: row.issued_at,
-    linkExpiresAt: row.link_expires_at,
+    downloadedAt: row.downloaded_at,
     emailSentAt: row.email_sent_at,
-    resendCount: row.resend_count,
   };
 }
 
@@ -105,18 +142,43 @@ export async function loadGrants(orderId: string): Promise<DownloadGrant[]> {
   return data.map(toGrant);
 }
 
+/** One grant by id — the download route's first step. */
+export async function loadGrant(grantId: string): Promise<DownloadGrant | null> {
+  const { data, error } = await rest<GrantRow[]>(
+    'GET',
+    'order_downloads',
+    `id=eq.${encodeURIComponent(grantId)}&select=${GRANT_COLUMNS}&limit=1`,
+  );
+  if (error || !data) {
+    console.error('[downloads] could not read grant:', error ?? 'empty response');
+    return null;
+  }
+  return data.length === 1 ? toGrant(data[0]) : null;
+}
+
 /**
- * Mint a signed URL for one object. Returns the raw response, which is
- * either `{ signedURL }` (a PATH, not absolute — see below) or `{ error }`.
+ * The one link shape the whole app uses: our own route, so the bytes
+ * (and therefore the completion signal) pass through this server.
+ * The grant id is a random uuid — unguessable, exactly as capable as
+ * the bearer signed URL it replaces, and single-use besides.
+ */
+export function downloadPath(grantId: string): string {
+  return `/api/orders/download/${encodeURIComponent(grantId)}`;
+}
+
+/**
+ * Mint a signed URL for one object — SERVER-TO-SERVER ONLY. It is the
+ * upstream the download route streams from, never something a browser
+ * receives (if it did, the transfer would bypass this server and
+ * completion could not be observed).
  *
  * The Storage sign endpoint returns `/object/sign/<bucket>/<path>?token=…`
  * relative to the project origin; we make it absolute against the
- * SUPABASE origin so the browser does not have to know where Storage
- * lives relative to the storefront.
+ * SUPABASE origin.
  */
-async function signPath(
+export async function signPath(
   storagePath: string,
-  ttlSeconds: number,
+  ttlSeconds: number = UPSTREAM_TTL_SECONDS,
 ): Promise<{ url: string } | { error: string }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -166,11 +228,11 @@ async function signPath(
 }
 
 /**
- * Does the object still exist? Used to tell "expired" (the file is
- * there, the link lapsed) from "missing" (the file itself is gone) —
- * the two need different copy and different actions.
+ * Does the object still exist? Told apart from "downloaded" because
+ * the two need different copy and different actions: one is a file the
+ * studio removed, the other is a file this buyer already used.
  */
-async function objectExists(storagePath: string): Promise<boolean> {
+export async function objectExists(storagePath: string): Promise<boolean> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return false;
@@ -194,114 +256,155 @@ async function objectExists(storagePath: string): Promise<boolean> {
 /**
  * Turn stored grants into what a page or an email can show.
  *
- * THE RECORDED WINDOW DECIDES THE STATE — this is the whole point of
- * `link_expires_at`, and minting unconditionally would break it:
- * if every read just minted a fresh URL, `expired` could never render,
- * the Resend button would be unreachable dead code, and we would be
- * silently renewing a link we had already told the buyer had expired.
+ *   downloaded_at set → `downloaded` (locked for good, no mint)
+ *   object gone      → `missing`   (never a dead link, never an error)
+ *   otherwise        → `available` (url = the one-time download route)
  *
- *   window lapsed  → `expired` (no mint; the buyer re-issues on purpose)
- *   window open    → mint now → `valid`
- *   never issued   → mint now, record the window → `valid`
- *   object gone    → `missing` (never a dead link, never an error)
- *
- * The window is recorded ONCE, at first issue, so the page and the
- * emailed link agree on when they die. A resend re-records it.
- *
- * `now` is injectable so tests can prove the expired branch without
- * waiting three days or backdating rows by hand.
+ * There is no expiry branch any more: a link that has not been used
+ * keeps working, because expiry plus no-resend would mean a Friday
+ * buyer could be locked out on Monday without ever having downloaded
+ * anything. Expiry is what the lock replaced, not a second gate.
  */
 export async function buildDownloadViews(
   grants: DownloadGrant[],
-  now: Date = new Date(),
 ): Promise<DownloadView[]> {
   const views: DownloadView[] = [];
 
   for (const grant of grants) {
-    const issuedAt = grant.linkExpiresAt === null ? null : new Date(grant.linkExpiresAt);
-    const lapsed = issuedAt !== null && issuedAt.getTime() <= now.getTime();
-
-    if (lapsed) {
+    if (grant.downloadedAt !== null) {
       views.push({
+        id: grant.id,
         productId: grant.productId,
         name: grant.productName,
         filename: grant.filename,
-        state: 'expired',
-        expiresAt: grant.linkExpiresAt as string,
+        state: 'downloaded',
+        downloadedAt: grant.downloadedAt,
       });
       continue;
     }
 
-    const signed = await signPath(grant.storagePath, LINK_TTL_SECONDS);
-
-    if ('url' in signed) {
-      // First issue records the window; later reads reuse it so the page
-      // never claims a later expiry than the link the buyer already has.
-      const expiresAt =
-        issuedAt?.toISOString() ??
-        (await markLinkIssued(grant.id, now)) ??
-        new Date(now.getTime() + LINK_TTL_SECONDS * 1000).toISOString();
-
-      views.push({
-        productId: grant.productId,
-        name: grant.productName,
-        filename: grant.filename,
-        state: 'valid',
-        // `download=<name>` makes Storage answer with
-        // `Content-Disposition: attachment; filename=…` (verified against
-        // the live API), so a PDF saves as its real filename instead of
-        // opening in a tab. Without it the browser decides.
-        url: `${signed.url}${signed.url.includes('?') ? '&' : '?'}download=${encodeURIComponent(grant.filename)}`,
-        expiresAt,
-      });
-      continue;
-    }
-
-    // Signing failed. Distinguish the two reasons that need different
-    // copy: the object is gone (missing) vs a transient failure, which
-    // must NOT be mislabelled as expired when the window is still open.
     const exists = await objectExists(grant.storagePath);
     if (!exists) {
       views.push({
+        id: grant.id,
         productId: grant.productId,
         name: grant.productName,
         filename: grant.filename,
         state: 'missing',
-        expiresAt: grant.linkExpiresAt ?? now.toISOString(),
       });
       continue;
     }
 
-    console.error('[downloads] sign failed for a live grant:', signed.error);
+    views.push({
+      id: grant.id,
+      productId: grant.productId,
+      name: grant.productName,
+      filename: grant.filename,
+      state: 'available',
+      url: downloadPath(grant.id),
+    });
   }
 
   return views;
 }
 
+/* ------------------------------------------------------------------ */
+/* The one-time claim: take → (stream) → complete | release            */
+/* ------------------------------------------------------------------ */
+
+export type ClaimResult = 'claimed' | 'downloaded' | 'busy' | 'not_found' | 'error';
+
 /**
- * Record that a URL was minted, so the My Order page can show an
- * expired state later without holding the URL itself.
+ * Atomically take the right to stream this file once.
  *
- * Returns the new expiry, or null when the write failed (the link the
- * caller already holds still works — the bookkeeping is best-effort and
- * must never break delivery).
+ * One conditional UPDATE does the whole job — `downloaded_at IS NULL`
+ * AND the lease is free (never claimed, or stale by more than the
+ * lease) — so two simultaneous requests can never both win: exactly one
+ * row comes back. PostgREST has no `OR` across a top-level filter, so
+ * the lease condition is one grouped `or=(…)` clause ANDed in.
+ *
+ * 'error' is deliberately NOT the same as 'claimed': when the database
+ * cannot answer, we refuse to serve rather than risk handing out a file
+ * twice. That fails safe for the lock and is retryable for the buyer.
  */
-export async function markLinkIssued(grantId: string, now: Date = new Date()): Promise<string | null> {
-  const expiresAt = new Date(now.getTime() + LINK_TTL_SECONDS * 1000).toISOString();
+export async function claimGrant(
+  grantId: string,
+  now: Date = new Date(),
+): Promise<ClaimResult> {
+  const staleBefore = new Date(now.getTime() - TRANSFER_LEASE_MS).toISOString();
+  const filter =
+    `id=eq.${encodeURIComponent(grantId)}` +
+    '&downloaded_at=is.null' +
+    `&or=(transfer_started_at.is.null,transfer_started_at.lt.${encodeURIComponent(staleBefore)})`;
+
+  const { data, error } = await rest<{ id: string }[]>(
+    'PATCH',
+    'order_downloads',
+    filter,
+    { transfer_started_at: now.toISOString() },
+  );
+  if (error) {
+    console.error('[downloads] could not claim grant:', error);
+    return 'error';
+  }
+  if (Array.isArray(data) && data.length === 1) return 'claimed';
+
+  // Zero rows: find out which of the two conditions blocked us, so the
+  // route can answer "already downloaded" instead of "busy".
+  const read = await rest<{ downloaded_at: string | null }[]>(
+    'GET',
+    'order_downloads',
+    `id=eq.${encodeURIComponent(grantId)}&select=downloaded_at&limit=1`,
+  );
+  if (read.error) {
+    console.error('[downloads] could not read claim state:', read.error);
+    return 'error';
+  }
+  if (!read.data || read.data.length === 0) return 'not_found';
+  return read.data[0].downloaded_at ? 'downloaded' : 'busy';
+}
+
+/**
+ * Give the claim back WITHOUT locking — the transfer did not finish, so
+ * the buyer keeps their file. Conditional on `downloaded_at IS NULL`
+ * so it can never undo a completed download if it races one.
+ */
+export async function releaseClaim(grantId: string): Promise<void> {
   const { error } = await rest(
     'PATCH',
     'order_downloads',
-    `id=eq.${encodeURIComponent(grantId)}`,
-    { link_expires_at: expiresAt },
+    `id=eq.${encodeURIComponent(grantId)}&downloaded_at=is.null`,
+    { transfer_started_at: null },
   );
-  if (error) {
-    console.error('[downloads] could not record link issue time:', error);
-    return null;
-  }
-  return expiresAt;
+  if (error) console.error('[downloads] could not release transfer claim:', error);
 }
 
-/** Record that a resend email actually went out (audit + rate evidence). */
+/**
+ * The lock: write downloaded_at for good. Returns whether this call
+ * flipped the row (it will not if another writer got there first).
+ *
+ * A failed write leaves the file available — the bytes already went
+ * out, so failing open is the only side that cannot cost a buyer their
+ * purchase. It is logged loudly.
+ */
+export async function completeTransfer(
+  grantId: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const { data, error } = await rest<{ id: string }[]>(
+    'PATCH',
+    'order_downloads',
+    `id=eq.${encodeURIComponent(grantId)}&downloaded_at=is.null`,
+    { downloaded_at: now.toISOString(), transfer_started_at: null },
+  );
+  if (error) {
+    console.error('[downloads] could not record completed download:', error);
+    return false;
+  }
+  return Array.isArray(data) && data.length === 1;
+}
+
+/** Record that a confirmation email actually went out (audit). */
 export async function markEmailSent(grantId: string): Promise<void> {
   const { error } = await rest(
     'PATCH',
@@ -310,42 +413,6 @@ export async function markEmailSent(grantId: string): Promise<void> {
     { email_sent_at: new Date().toISOString() },
   );
   if (error) console.error('[downloads] could not record email send:', error);
-}
-
-/**
- * Bump the resend counter and refresh the expiry window — called after
- * a resend request has been authenticated, whether or not the mail
- * provider accepted the message, so hammering the endpoint shows up.
- */
-export async function recordResend(grantId: string, now: Date = new Date()): Promise<string | null> {
-  const expiresAt = new Date(now.getTime() + LINK_TTL_SECONDS * 1000).toISOString();
-
-  // Read the current counter first, then write it back incremented. The
-  // REST helper has no `resend_count = resend_count + 1` form, so this is
-  // two round trips — acceptable because the endpoint is rate-limited
-  // anyway, and it keeps the counter honest rather than resetting it.
-  const read = await rest<{ resend_count: number }[]>(
-    'GET',
-    'order_downloads',
-    `id=eq.${encodeURIComponent(grantId)}&select=resend_count&limit=1`,
-  );
-  if (read.error || !read.data || read.data.length === 0) {
-    console.error('[downloads] could not read resend state:', read.error ?? 'no row');
-    return null;
-  }
-
-  const next = (read.data[0].resend_count ?? 0) + 1;
-  const { error } = await rest(
-    'PATCH',
-    'order_downloads',
-    `id=eq.${encodeURIComponent(grantId)}`,
-    { resend_count: next, link_expires_at: expiresAt },
-  );
-  if (error) {
-    console.error('[downloads] could not refresh resend state:', error);
-    return null;
-  }
-  return expiresAt;
 }
 
 /** Exposed for the admin sign route and tests: is this path well-formed? */

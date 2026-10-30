@@ -71,10 +71,6 @@ export function TrackerLookup() {
   const [identity, setIdentity] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<LookupResult | null>(null);
-  // The identity that actually matched, kept so the resend action can
-  // replay it without asking the buyer to retype anything. Never
-  // rendered, never sent anywhere except the resend endpoint.
-  const [matched, setMatched] = useState<{ email?: string; phone?: string }>({});
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -96,7 +92,6 @@ export function TrackerLookup() {
       if (response.status === 200) {
         const data = (await response.json()) as LookupResult;
         setResult(data);
-        setMatched(who.includes('@') ? { email: who } : { phone: who });
         setPhase('result');
       } else if (response.status === 404) {
         setPhase('not-found');
@@ -113,7 +108,6 @@ export function TrackerLookup() {
 
   const reset = () => {
     setResult(null);
-    setMatched({});
     setPhase('idle');
   };
 
@@ -189,14 +183,14 @@ export function TrackerLookup() {
           </div>
         )}
 
-        {/* Digital goods: links, expiry and the resend path. Rendered
-            before the itemised list because for a digital-only order it
-            is the actual deliverable. */}
+        {/* Digital goods: one link per file, each usable once, and the
+            recovery path once a file has been used. Rendered before the
+            itemised list because for a digital-only order it is the
+            actual deliverable. */}
         {result.downloads && result.downloads.length > 0 && (
           <DownloadBlock
             downloads={result.downloads}
             orderNumber={result.orderNumber}
-            identity={matched}
           />
         )}
 

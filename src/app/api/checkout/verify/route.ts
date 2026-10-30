@@ -104,10 +104,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Digital links for the success page, minted fresh on every call
-    // (they expire, so nothing is cached). Works whether or not THIS
-    // call was the one that confirmed — the grants are already in the
-    // database either way.
+    // Digital state for the success page, read fresh on every call.
+    // Works whether or not THIS call was the one that confirmed — the
+    // grants are already in the database either way.
     const grants = await loadGrants(result.orderId);
     const downloads = grants.length > 0 ? await buildDownloadViews(grants) : [];
 

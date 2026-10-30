@@ -1,12 +1,12 @@
 /**
  * The one implementation of "is this person who they say they are?"
- * for customer-facing order endpoints (Tier 4 lookup, Tier 5 resend).
+ * for customer-facing order endpoints (Tier 4 lookup).
  *
- * Extracted so /api/orders/lookup and /api/orders/resend-download can
- * never drift: both compare the SAME normalised values against the SAME
- * column, and both return the SAME miss. Two copies of this logic would
- * eventually disagree about what counts as a match — which is precisely
- * the leak the dual-field rule exists to close.
+ * Extracted so every endpoint that asks the question compares the SAME
+ * normalised values against the SAME column, and returns the SAME miss.
+ * Two copies of this logic would eventually disagree about what counts
+ * as a match — which is precisely the leak the dual-field rule exists
+ * to close.
  *
  * No customer accounts exist: the order number alone is never enough
  * (CH-##### is sequential and guessable), so a match needs the reference

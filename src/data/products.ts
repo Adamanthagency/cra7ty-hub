@@ -358,7 +358,7 @@ export const faqs: FaqItem[] = [
   },
   {
     q: 'Where do I get my digital download?',
-    a: 'The confirmation email arrives the moment your payment clears, with a fresh link that stays good for 72 hours. If you missed it, open My Order in the menu, enter your order number with the email or phone you paid with, and every file you bought is listed there — with a Resend button if the link has run out. That page is the backup; the email is the fast path.',
+    a: 'The confirmation email arrives the moment your payment clears, with a link for every file you bought — and the success page shows the same links straight away. Open My Order in the menu any time (order number plus the email or phone you paid with) to see them again. Save each file as you download it: every file downloads once, so if you lose it you will need to buy it again or message the studio.',
   },
 ];
 
